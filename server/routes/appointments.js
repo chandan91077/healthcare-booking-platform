@@ -5,6 +5,7 @@ const Doctor = require('../models/Doctor');
 const User = require('../models/User');
 const path = require('path');
 const { protect } = require('../middleware/authMiddleware');
+const zoomService = require('../services/zoomService');
 
 // Get appointment by ID
 router.get('/:id', protect, async (req, res) => {
@@ -147,6 +148,22 @@ router.post('/', protect, async (req, res) => {
             chat_unlocked: appointment_type === 'emergency',
             video_unlocked: appointment_type === 'emergency',
         });
+
+        // Create Zoom meeting for the appointment
+        try {
+            const patient = await User.findById(patient_id);
+            const zoomMeeting = await zoomService.createMeeting({
+                patientName: patient.full_name,
+                appointment_date,
+                appointment_time,
+            });
+
+            appointment.video = zoomMeeting;
+            await appointment.save();
+        } catch (zoomError) {
+            console.error('Failed to create Zoom meeting:', zoomError);
+            // Don't fail the appointment creation if Zoom fails, but log it
+        }
 
         res.status(201).json(appointment);
     } catch (error) {
@@ -294,6 +311,177 @@ router.put('/:id/permissions', protect, async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(400).json({ message: error.message });
+    }
+});
+
+// Toggle video access for appointment (doctor/admin only)
+router.patch('/:id/video-toggle', protect, async (req, res) => {
+    try {
+        const appointment = await Appointment.findById(req.params.id)
+            .populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name email' } })
+            .populate('patient_id', 'full_name email');
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Check if user is authorized (doctor who owns appointment or admin)
+        let isAuthorized = false;
+        if (req.user.role === 'admin') {
+            isAuthorized = true;
+        } else if (req.user.role === 'doctor') {
+            const doctor = await Doctor.findOne({ user_id: req.user._id });
+            if (doctor && doctor._id.toString() === appointment.doctor_id._id.toString()) {
+                isAuthorized = true;
+            }
+        }
+
+        if (!isAuthorized) {
+            return res.status(403).json({ message: 'Not authorized to toggle video access' });
+        }
+
+        // Toggle video enabled status
+        const wasEnabled = appointment.video.enabled;
+        appointment.video.enabled = !appointment.video.enabled;
+
+        if (appointment.video.enabled && !wasEnabled) {
+            appointment.video.enabledAt = new Date();
+        } else if (!appointment.video.enabled) {
+            appointment.video.enabledAt = null;
+        }
+
+        await appointment.save();
+
+        res.json({
+            message: `Video ${appointment.video.enabled ? 'enabled' : 'disabled'} for appointment`,
+            video: appointment.video
+        });
+    } catch (error) {
+        console.error('Video toggle error:', error);
+        res.status(500).json({ message: 'Failed to toggle video access' });
+    }
+});
+
+router.patch('/:id/doctor-join-call', protect, async (req, res) => {
+    try {
+        const appointment = await Appointment.findById(req.params.id);
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Check if user is authorized (doctor who owns appointment or admin)
+        let isAuthorized = false;
+        if (req.user.role === 'admin') {
+            isAuthorized = true;
+        } else if (req.user.role === 'doctor') {
+            const doctor = await Doctor.findOne({ user_id: req.user._id });
+            if (doctor && doctor._id.toString() === appointment.doctor_id.toString()) {
+                isAuthorized = true;
+            }
+        }
+
+        if (!isAuthorized) {
+            return res.status(403).json({ message: 'Not authorized to update call status' });
+        }
+
+        appointment.video.doctorInCall = true;
+        await appointment.save();
+
+        res.json({
+            message: 'Doctor joined video call',
+            video: appointment.video
+        });
+    } catch (error) {
+        console.error('Doctor join call error:', error);
+        res.status(500).json({ message: 'Failed to update call status' });
+    }
+});
+
+router.patch('/:id/doctor-leave-call', protect, async (req, res) => {
+    try {
+        const appointment = await Appointment.findById(req.params.id);
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Check if user is authorized (doctor who owns appointment or admin)
+        let isAuthorized = false;
+        if (req.user.role === 'admin') {
+            isAuthorized = true;
+        } else if (req.user.role === 'doctor') {
+            const doctor = await Doctor.findOne({ user_id: req.user._id });
+            if (doctor && doctor._id.toString() === appointment.doctor_id.toString()) {
+                isAuthorized = true;
+            }
+        }
+
+        if (!isAuthorized) {
+            return res.status(403).json({ message: 'Not authorized to update call status' });
+        }
+
+        appointment.video.doctorInCall = false;
+        await appointment.save();
+
+        res.json({
+            message: 'Doctor left video call',
+            video: appointment.video
+        });
+    } catch (error) {
+        console.error('Doctor leave call error:', error);
+        res.status(500).json({ message: 'Failed to update call status' });
+    }
+});
+
+router.patch('/:id/refresh-zoom-meeting', protect, async (req, res) => {
+    try {
+        const appointment = await Appointment.findById(req.params.id)
+            .populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name email' } })
+            .populate('patient_id', 'full_name email');
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Check if user is authorized (doctor who owns appointment or admin)
+        let isAuthorized = false;
+        if (req.user.role === 'admin') {
+            isAuthorized = true;
+        } else if (req.user.role === 'doctor') {
+            const doctor = await Doctor.findOne({ user_id: req.user._id });
+            if (doctor && doctor._id.toString() === appointment.doctor_id._id.toString()) {
+                isAuthorized = true;
+            }
+        }
+
+        if (!isAuthorized) {
+            return res.status(403).json({ message: 'Not authorized to refresh meeting' });
+        }
+
+        // Create new Zoom meeting
+        const patient = await User.findById(appointment.patient_id);
+        const zoomMeeting = await zoomService.createMeeting({
+            patientName: patient.full_name,
+            appointment_date: appointment.appointment_date,
+            appointment_time: appointment.appointment_time,
+        });
+
+        appointment.video = {
+            ...zoomMeeting,
+            enabled: appointment.video.enabled,
+            enabledAt: appointment.video.enabledAt,
+            doctorInCall: appointment.video.doctorInCall,
+        };
+        await appointment.save();
+
+        res.json({
+            message: 'Zoom meeting refreshed successfully',
+            video: appointment.video
+        });
+    } catch (error) {
+        console.error('Refresh meeting error:', error);
+        res.status(500).json({ message: 'Failed to refresh Zoom meeting' });
     }
 });
 

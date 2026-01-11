@@ -24,6 +24,7 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Specializations from "./pages/Specializations";
 import AboutUs from "./pages/AboutUs";
+import PastAppointments from "./pages/PastAppointments";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/doctor" element={<DoctorDashboard />} />
             <Route path="/doctor/register" element={<DoctorRegister />} />
+            <Route path="/doctor/past-appointments" element={<PastAppointments />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/doctors" element={<Doctors />} />
             <Route path="/book/:doctorId" element={<BookAppointment />} />

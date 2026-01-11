@@ -45,6 +45,36 @@ const appointmentSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    video: {
+        provider: {
+            type: String,
+            default: 'zoom',
+        },
+        meetingId: {
+            type: String,
+            default: null,
+        },
+        doctorJoinUrl: {
+            type: String,
+            default: null,
+        },
+        patientJoinUrl: {
+            type: String,
+            default: null,
+        },
+        enabled: {
+            type: Boolean,
+            default: false,
+        },
+        enabledAt: {
+            type: Date,
+            default: null,
+        },
+        doctorInCall: {
+            type: Boolean,
+            default: false,
+        },
+    },
     zoom_join_url: {
         type: String,
         default: null,

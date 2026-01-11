@@ -32,6 +32,24 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: 'en'
     },
+    notification_preferences: {
+        email: {
+            type: Boolean,
+            default: true,
+        },
+        push: {
+            type: Boolean,
+            default: true,
+        },
+        video_calls: {
+            type: Boolean,
+            default: true,
+        },
+        appointments: {
+            type: Boolean,
+            default: true,
+        },
+    },
 }, { timestamps: true });
 
 // Encrypt password using bcrypt

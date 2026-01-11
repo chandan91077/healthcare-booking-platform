@@ -73,11 +73,11 @@ router.get('/conversations', protect, async (req, res) => {
 
         let appts = [];
         if (role === 'patient') {
-            appts = await Appointment.find({ patient_id: _id }).select('_id doctor_id patient_id').populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } }).populate('patient_id', 'full_name');
+            appts = await Appointment.find({ patient_id: _id }).select('_id doctor_id patient_id video status appointment_date appointment_time').populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } }).populate('patient_id', 'full_name');
         } else if (role === 'doctor') {
             const doctor = await Doctor.findOne({ user_id: _id });
             if (!doctor) return res.json([]);
-            appts = await Appointment.find({ doctor_id: doctor._id }).select('_id doctor_id patient_id').populate('patient_id', 'full_name').populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } });
+            appts = await Appointment.find({ doctor_id: doctor._id }).select('_id doctor_id patient_id video status appointment_date appointment_time').populate('patient_id', 'full_name').populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } });
         } else {
             return res.json([]);
         }
@@ -85,31 +85,84 @@ router.get('/conversations', protect, async (req, res) => {
         const apptIds = appts.map(a => a._id);
         if (apptIds.length === 0) return res.json([]);
 
-        const convs = await Message.aggregate([
-            { $match: { appointment_id: { $in: apptIds } } },
-            { $sort: { createdAt: -1 } },
-            { $group: {
-                _id: '$appointment_id',
-                lastMessageId: { $first: '$_id' },
-                lastContent: { $first: '$content' },
-                lastCreatedAt: { $first: '$createdAt' },
-                sender_id: { $first: '$sender_id' },
-                unreadCount: { $sum: { $cond: [ { $and: [ { $eq: ['$is_read', false] }, { $ne: ['$sender_id', req.user._id] } ] }, 1, 0 ] } }
-            }}
-        ]);
+        // Group conversations by patient-doctor pairs instead of individual appointments
+        const conversationGroups = new Map();
+
+        for (const appt of appts) {
+            const patientId = appt.patient_id._id.toString();
+            const doctorId = appt.doctor_id._id.toString();
+            const pairKey = role === 'patient' ? `${patientId}-${doctorId}` : `${doctorId}-${patientId}`;
+
+            if (!conversationGroups.has(pairKey)) {
+                conversationGroups.set(pairKey, {
+                    appointments: [],
+                    otherPartyName: role === 'patient' ? (appt.doctor_id?.user_id?.full_name || 'Doctor') : (appt.patient_id?.full_name || 'Patient'),
+                    latestAppointment: appt
+                });
+            }
+
+            conversationGroups.get(pairKey).appointments.push(appt);
+
+            // Update latest appointment if this one is more recent
+            const currentLatest = conversationGroups.get(pairKey).latestAppointment;
+            const currentDate = new Date(`${currentLatest.appointment_date}T${currentLatest.appointment_time}`);
+            const thisDate = new Date(`${appt.appointment_date}T${appt.appointment_time}`);
+
+            if (thisDate > currentDate) {
+                conversationGroups.get(pairKey).latestAppointment = appt;
+            }
+        }
 
         const results = [];
-        for (const c of convs) {
-            const appt = appts.find(a => a._id.toString() === c._id.toString());
-            const otherPartyName = role === 'patient' ? (appt.doctor_id?.user_id?.full_name || 'Doctor') : (appt.patient_id?.full_name || 'Patient');
-            const sender = await User.findById(c.sender_id).select('full_name');
-            results.push({
-                appointment_id: c._id,
-                lastMessage: { _id: c.lastMessageId, content: c.lastContent, createdAt: c.lastCreatedAt, senderName: sender?.full_name || null },
-                unreadCount: c.unreadCount || 0,
-                otherPartyName
-            });
+
+        for (const [pairKey, group] of conversationGroups) {
+            const groupApptIds = group.appointments.map(a => a._id);
+
+            // Get messages for all appointments in this patient-doctor pair
+            const convs = await Message.aggregate([
+                { $match: { appointment_id: { $in: groupApptIds } } },
+                { $sort: { createdAt: -1 } },
+                { $group: {
+                    _id: null, // Group all messages from this patient-doctor pair
+                    lastMessageId: { $first: '$_id' },
+                    lastContent: { $first: '$content' },
+                    lastCreatedAt: { $first: '$createdAt' },
+                    sender_id: { $first: '$sender_id' },
+                    unreadCount: { $sum: { $cond: [ { $and: [ { $eq: ['$is_read', false] }, { $ne: ['$sender_id', req.user._id] } ] }, 1, 0 ] } }
+                }}
+            ]);
+
+            if (convs.length > 0) {
+                const c = convs[0];
+                const sender = await User.findById(c.sender_id).select('full_name');
+                results.push({
+                    appointment_id: group.latestAppointment._id, // Use latest appointment ID for routing
+                    lastMessage: { _id: c.lastMessageId, content: c.lastContent, createdAt: c.lastCreatedAt, senderName: sender?.full_name || null },
+                    unreadCount: c.unreadCount || 0,
+                    otherPartyName: group.otherPartyName,
+                    video: group.latestAppointment.video || null,
+                    appointmentCount: group.appointments.length // Number of appointments in this conversation
+                });
+            } else {
+                // No messages yet, but show the conversation anyway
+                results.push({
+                    appointment_id: group.latestAppointment._id,
+                    lastMessage: null,
+                    unreadCount: 0,
+                    otherPartyName: group.otherPartyName,
+                    video: group.latestAppointment.video || null,
+                    appointmentCount: group.appointments.length
+                });
+            }
         }
+
+        // Sort by last message time (most recent first)
+        results.sort((a, b) => {
+            if (!a.lastMessage && !b.lastMessage) return 0;
+            if (!a.lastMessage) return 1;
+            if (!b.lastMessage) return -1;
+            return new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt);
+        });
 
         res.json(results);
     } catch (error) {
@@ -117,13 +170,66 @@ router.get('/conversations', protect, async (req, res) => {
     }
 });
 
-// Mark messages as read for this appointment for the current user
+// Get messages for a conversation (all appointments between patient and doctor)
+router.get('/conversation', protect, async (req, res) => {
+    try {
+        const { appointment_id } = req.query;
+        if (!appointment_id) return res.status(400).json({ message: 'Appointment ID required' });
+
+        // Get the appointment to find the patient-doctor pair
+        const Appointment = require('../models/Appointment');
+        const appointment = await Appointment.findById(appointment_id);
+        if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
+
+        // Find all appointments between this patient and doctor
+        const allAppointments = await Appointment.find({
+            $or: [
+                { patient_id: appointment.patient_id, doctor_id: appointment.doctor_id },
+                { patient_id: appointment.patient_id, doctor_id: appointment.doctor_id }
+            ]
+        }).select('_id');
+
+        const appointmentIds = allAppointments.map(a => a._id);
+
+        // Get messages from all appointments in this conversation
+        const messages = await Message.find({ appointment_id: { $in: appointmentIds } })
+            .sort({ createdAt: 1 })
+            .populate('sender_id', 'full_name');
+
+        res.json(messages);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Mark messages as read for this conversation (all appointments between patient and doctor)
 router.put('/mark-read', protect, async (req, res) => {
     try {
         const { appointment_id } = req.body;
         if (!appointment_id) return res.status(400).json({ message: 'Appointment ID required' });
 
-        await Message.updateMany({ appointment_id, sender_id: { $ne: req.user._id }, is_read: false }, { is_read: true });
+        // Get the appointment to find the patient-doctor pair
+        const Appointment = require('../models/Appointment');
+        const appointment = await Appointment.findById(appointment_id);
+        if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
+
+        // Find all appointments between this patient and doctor
+        const allAppointments = await Appointment.find({
+            $or: [
+                { patient_id: appointment.patient_id, doctor_id: appointment.doctor_id },
+                { patient_id: appointment.patient_id, doctor_id: appointment.doctor_id }
+            ]
+        }).select('_id');
+
+        const appointmentIds = allAppointments.map(a => a._id);
+
+        // Mark messages as read for all appointments in this conversation
+        await Message.updateMany({
+            appointment_id: { $in: appointmentIds },
+            sender_id: { $ne: req.user._id },
+            is_read: false
+        }, { is_read: true });
+
         res.json({ updated: true });
     } catch (error) {
         res.status(400).json({ message: error.message });

@@ -39,6 +39,14 @@ interface AppointmentDetails {
   chat_unlocked: boolean;
   video_unlocked: boolean;
   zoom_join_url: string | null;
+  video: {
+    provider: string;
+    meetingId: string;
+    doctorJoinUrl: string;
+    patientJoinUrl: string;
+    enabled: boolean;
+    enabledAt: string | null;
+  };
   doctor_id: string;
   patient_id: string;
   otherParty: {
@@ -123,8 +131,8 @@ export default function Chat() {
         otherParty
       });
 
-      // Fetch messages
-      const { data: messagesData } = await api.get(`/messages?appointment_id=${appointmentId}`);
+      // Fetch messages from all appointments in this conversation
+      const { data: messagesData } = await api.get(`/messages/conversation?appointment_id=${appointmentId}`);
       setMessages(messagesData || []);
 
       // Mark other-party messages as read for the current user
@@ -315,9 +323,17 @@ export default function Chat() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {appointment.video_unlocked && appointment.zoom_join_url && (
+                {appointment.video?.enabled && appointment.video.patientJoinUrl && (
                   <Button variant="outline" asChild>
-                    <a href={appointment.zoom_join_url} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={appointment.video.patientJoinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        window.open(appointment.video.patientJoinUrl, '_blank', 'noopener,noreferrer');
+                      }}
+                    >
                       <Video className="h-4 w-4 mr-2" />
                       Join Video
                     </a>

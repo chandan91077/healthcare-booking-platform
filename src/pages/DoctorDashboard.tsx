@@ -64,6 +64,14 @@ interface Appointment {
   chat_unlocked: boolean;
   video_unlocked: boolean;
   zoom_start_url: string | null;
+  video: {
+    provider: string;
+    meetingId: string;
+    doctorJoinUrl: string;
+    patientJoinUrl: string;
+    enabled: boolean;
+    enabledAt: string | null;
+  };
   patient: {
     _id: string;
     full_name: string;
@@ -543,13 +551,144 @@ export default function DoctorDashboard() {
                             </div>
                           )}
 
-                          {appt.video_unlocked && appt.zoom_start_url && (
-                            <Button size="sm" asChild>
-                              <a href={appt.zoom_start_url} target="_blank" rel="noopener noreferrer">
-                                <Video className="h-4 w-4 mr-1" />
-                                Start Video
-                              </a>
+                          {/* Video controls */}
+                          {!appt.video?.enabled ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  await api.patch(`/appointments/${appt._id}/video-toggle`);
+                                  toast.success('Video call enabled for this appointment');
+                                  // Refresh appointments
+                                  const { data } = await api.get('/appointments');
+                                  const mappedAppointments = data.map((appt: any) => ({
+                                    ...appt,
+                                    id: appt._id,
+                                    patient: appt.patient_id ? {
+                                      _id: appt.patient_id._id,
+                                      full_name: appt.patient_id.full_name,
+                                      email: appt.patient_id.email
+                                    } : null
+                                  }));
+                                  setAppointments(mappedAppointments);
+                                } catch (err) {
+                                  console.error('Error enabling video', err);
+                                  toast.error('Failed to enable video call');
+                                }
+                              }}
+                            >
+                              <Video className="h-4 w-4 mr-1" />
+                              Enable Video
                             </Button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              {appt.video.doctorInCall ? (
+                                <>
+                                  <Button size="sm" variant="secondary" asChild>
+                                    <a
+                                      href={appt.video.doctorJoinUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        window.open(appt.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
+                                      }}
+                                    >
+                                      <Video className="h-4 w-4 mr-1" />
+                                      Rejoin Video
+                                    </a>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={async () => {
+                                      try {
+                                        await api.patch(`/appointments/${appt._id}/doctor-leave-call`);
+                                        toast.success('Left video call');
+                                        // Refresh appointments
+                                        const { data } = await api.get('/appointments');
+                                        const mappedAppointments = data.map((appt: any) => ({
+                                          ...appt,
+                                          id: appt._id,
+                                          patient: appt.patient_id ? {
+                                            _id: appt.patient_id._id,
+                                            full_name: appt.patient_id.full_name,
+                                            email: appt.patient_id.email,
+                                          } : null,
+                                          doctor: appt.doctor_id ? {
+                                            _id: appt.doctor_id._id,
+                                            full_name: appt.doctor_id.user_id?.full_name || 'Doctor',
+                                          } : null,
+                                        }));
+                                        setAppointments(mappedAppointments);
+                                      } catch (error) {
+                                        console.error('Failed to leave call:', error);
+                                        toast.error('Failed to leave call');
+                                      }
+                                    }}
+                                  >
+                                    <Video className="h-4 w-4 mr-1" />
+                                    Leave Call
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button size="sm" asChild>
+                                  <a
+                                    href={appt.video.doctorJoinUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={async (e) => {
+                                      e.preventDefault();
+                                      try {
+                                        await api.patch(`/appointments/${appt._id}/doctor-join-call`);
+                                        window.open(appt.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
+                                      } catch (error) {
+                                        console.error('Failed to update call status:', error);
+                                      // Try to refresh the meeting if the URL might be expired
+                                      try {
+                                        const refreshResponse = await api.patch(`/appointments/${appt._id}/refresh-zoom-meeting`);
+                                        window.open(refreshResponse.data.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
+                                      } catch (refreshError) {
+                                        console.error('Failed to refresh meeting:', refreshError);
+                                        window.open(appt.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
+                                      }
+                                      }
+                                    }}
+                                  >
+                                    <Video className="h-4 w-4 mr-1" />
+                                    Start Video
+                                  </a>
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={async () => {
+                                  try {
+                                    await api.patch(`/appointments/${appt._id}/video-toggle`);
+                                    toast.success('Video call disabled for this appointment');
+                                    // Refresh appointments
+                                    const { data } = await api.get('/appointments');
+                                    const mappedAppointments = data.map((appt: any) => ({
+                                      ...appt,
+                                      id: appt._id,
+                                      patient: appt.patient_id ? {
+                                        _id: appt.patient_id._id,
+                                        full_name: appt.patient_id.full_name,
+                                        email: appt.patient_id.email
+                                      } : null
+                                    }));
+                                    setAppointments(mappedAppointments);
+                                  } catch (err) {
+                                    console.error('Error disabling video', err);
+                                    toast.error('Failed to disable video call');
+                                  }
+                                }}
+                              >
+                                Disable Video
+                              </Button>
+                            </div>
                           )}
                         </>
                       )}
@@ -595,6 +734,26 @@ export default function DoctorDashboard() {
               </div>
             )}
           </CardContent>
+        </Card>
+
+        {/* Past Appointments */}
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Past Appointments</CardTitle>
+                <CardDescription>View and search your completed appointments</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/doctor/past-appointments")}
+                className="flex items-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                View Past Appointments
+              </Button>
+            </div>
+          </CardHeader>
         </Card>
 
         {/* Availability Management */}

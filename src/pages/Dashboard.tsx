@@ -16,7 +16,28 @@ import {
   Search,
   Clock,
   Settings,
+  Video,
 } from "lucide-react";
+
+interface Conversation {
+  appointment_id: string;
+  lastMessage: {
+    _id: string;
+    content: string;
+    createdAt: string;
+    senderName: string | null;
+  };
+  unreadCount: number;
+  otherPartyName: string;
+  video: {
+    provider: string;
+    meetingId: string | null;
+    doctorJoinUrl: string | null;
+    patientJoinUrl: string | null;
+    enabled: boolean;
+    enabledAt: Date | null;
+  } | null;
+}
 
 export default function Dashboard() {
   const { user, role, isLoading, isAuthenticated } = useAuthContext();
@@ -157,7 +178,7 @@ export default function Dashboard() {
 
 // Small component to render recent conversations
 function RecentMessages() {
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
 
   useEffect(() => {
     async function fetchConvs() {
@@ -191,12 +212,26 @@ function RecentMessages() {
               <AvatarFallback>{(c.otherPartyName || 'U').charAt(0)}</AvatarFallback>
             </Avatar>
             <div>
-              <div className="font-medium">{c.otherPartyName}</div>
-              <div className="text-sm text-muted-foreground truncate w-72">{c.unreadCount > 0 ? 'New message' : 'Message'}</div>
+              <div className="font-medium flex items-center gap-2">
+                {c.otherPartyName}
+                {c.appointmentCount > 1 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {c.appointmentCount} appointments
+                  </Badge>
+                )}
+              </div>
+              <div className="text-sm text-muted-foreground truncate w-72">
+                {c.lastMessage ? c.lastMessage.content : 'No messages yet'}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {c.unreadCount > 0 && <Badge variant="destructive">{c.unreadCount}</Badge>}
+            {c.video?.enabled && c.video?.doctorInCall ? (
+              <Video className="h-6 w-6 text-green-500 hover:text-green-600 cursor-pointer" />
+            ) : (
+              <Video className="h-6 w-6 text-gray-400 cursor-not-allowed" />
+            )}
             <Button size="sm" asChild>
               <Link to={`/chat/${c.appointment_id}`}>Open</Link>
             </Button>

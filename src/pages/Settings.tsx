@@ -12,11 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Loader2, User, Phone, Mail, ArrowLeft, Camera, Stethoscope, IndianRupee, Briefcase, FileText, Zap, MapPin } from "lucide-react";
+import { Loader2, User, Phone, Mail, ArrowLeft, Camera, Stethoscope, IndianRupee, Briefcase, FileText, Zap, MapPin, Bell } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const profileSchema = z.object({
@@ -54,6 +55,123 @@ interface DoctorData {
   consultation_fee: number;
   emergency_fee: number;
   profile_image_url: string | null;
+}
+
+function NotificationPreferences() {
+  const [preferences, setPreferences] = useState({
+    email: true,
+    push: true,
+    video_calls: true,
+    appointments: true,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchPreferences();
+  }, []);
+
+  const fetchPreferences = async () => {
+    try {
+      const { data } = await api.get('/notifications/preferences');
+      setPreferences(data);
+    } catch (error) {
+      console.error('Error fetching preferences:', error);
+      toast.error('Failed to load notification preferences');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updatePreference = async (key: string, value: boolean) => {
+    setSaving(true);
+    try {
+      const { data } = await api.put('/notifications/preferences', { [key]: value });
+      setPreferences(data);
+      toast.success('Notification preferences updated');
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+      toast.error('Failed to update notification preferences');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <Skeleton className="h-32" />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <Label htmlFor="email-notifications" className="text-sm font-medium">
+            Email Notifications
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Receive email notifications for appointments and updates
+          </p>
+        </div>
+        <Switch
+          id="email-notifications"
+          checked={preferences.email}
+          onCheckedChange={(checked) => updatePreference('email', checked)}
+          disabled={saving}
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <Label htmlFor="push-notifications" className="text-sm font-medium">
+            Push Notifications
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Receive browser push notifications for important updates
+          </p>
+        </div>
+        <Switch
+          id="push-notifications"
+          checked={preferences.push}
+          onCheckedChange={(checked) => updatePreference('push', checked)}
+          disabled={saving}
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <Label htmlFor="video-call-notifications" className="text-sm font-medium">
+            Video Call Notifications
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Get notified when doctors enable video calls for your appointments
+          </p>
+        </div>
+        <Switch
+          id="video-call-notifications"
+          checked={preferences.video_calls}
+          onCheckedChange={(checked) => updatePreference('video_calls', checked)}
+          disabled={saving}
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <Label htmlFor="appointment-notifications" className="text-sm font-medium">
+            Appointment Notifications
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Receive notifications about appointment confirmations and reminders
+          </p>
+        </div>
+        <Switch
+          id="appointment-notifications"
+          checked={preferences.appointments}
+          onCheckedChange={(checked) => updatePreference('appointments', checked)}
+          disabled={saving}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function Settings() {
@@ -517,6 +635,22 @@ export default function Settings() {
               </CardContent>
             </Card>
           )}
+
+          {/* Notification Preferences */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Notification Preferences
+              </CardTitle>
+              <CardDescription>
+                Choose how you want to be notified about appointments and updates
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <NotificationPreferences />
+            </CardContent>
+          </Card>
 
           {/* Account Security */}
           <Card>

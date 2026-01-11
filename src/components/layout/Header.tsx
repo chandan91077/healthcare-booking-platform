@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
-import { Bell } from "lucide-react";
+import { Bell, Video, Settings } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { signOut } from "@/lib/auth";
 import {
@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Menu, X, Heart, User, LogOut, Calendar, Settings } from "lucide-react";
+import { Menu, X, Heart, User, LogOut, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
 export function Header() {
@@ -22,6 +22,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [recentNotifs, setRecentNotifs] = useState<any[]>([]);
+  const [videoAppointments, setVideoAppointments] = useState<any[]>([]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -31,13 +32,20 @@ export function Header() {
         setUnreadCount(data.count || 0);
         const { data: notifs } = await api.get('/notifications');
         setRecentNotifs(notifs.slice(0,5));
+
+        // Fetch video-enabled appointments for patients
+        if (role === 'patient') {
+          const { data: appointments } = await api.get('/appointments');
+          const videoEnabled = appointments.filter((appt: any) => appt.video?.enabled);
+          setVideoAppointments(videoEnabled);
+        }
       } catch (err) {
         // ignore
       }
     }
 
     fetchUnread();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, role]);
   const handleSignOut = async () => {
     try {
       await logout();
@@ -119,6 +127,55 @@ export function Header() {
                       <Link to="/notifications">View all</Link>
                     </Button>
                   </div>
+
+                  {/* Video Call Section for Patients */}
+                  {role === 'patient' && videoAppointments.length > 0 && (
+                    <div className="mb-3 p-2 bg-blue-50 rounded border">
+                      <p className="text-sm font-medium text-blue-900 mb-2 flex items-center gap-1">
+                        <Video className="h-4 w-4" />
+                        Active Video Calls
+                      </p>
+                      <div className="space-y-1">
+                        {videoAppointments.slice(0, 2).map((appt) => (
+                          <Button
+                            key={appt._id}
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => {
+                              window.open(appt.video.patientJoinUrl, '_blank', 'noopener,noreferrer');
+                            }}
+                          >
+                            <Video className="h-3 w-3 mr-1" />
+                            Join call with {appt.doctor?.profile?.full_name || 'Doctor'}
+                          </Button>
+                        ))}
+                        {videoAppointments.length > 2 && (
+                          <p className="text-xs text-blue-700 mt-1">
+                            +{videoAppointments.length - 2} more calls available
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notification Settings */}
+                  <div className="mb-3 p-2 border rounded">
+                    <p className="text-sm font-medium mb-2">Notification Settings</p>
+                    <div className="space-y-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="w-full justify-start text-xs"
+                        asChild
+                      >
+                        <Link to="/settings">
+                          <Settings className="h-3 w-3 mr-1" />
+                          Manage Preferences
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     {recentNotifs.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No recent notifications</p>
