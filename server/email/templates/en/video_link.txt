@@ -1,0 +1,7 @@
+Hello {{name}},
+
+Your video appointment with Dr. {{doctor}} is scheduled on {{date}} at {{time}}.
+Join here: {{link}}
+
+Regards,
+HealthLink Team

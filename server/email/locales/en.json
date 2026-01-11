@@ -1,0 +1,4 @@
+{
+  "video_subject": "Video appointment link for your appointment on {{date}}",
+  "video_subject_doctor": "You enabled video for appointment on {{date}}"
+}
