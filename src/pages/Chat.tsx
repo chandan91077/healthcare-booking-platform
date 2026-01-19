@@ -76,6 +76,7 @@ export default function Chat() {
   // Video controls state
   const [zoomLink, setZoomLink] = useState<string>("");
   const [videoLoading, setVideoLoading] = useState(false);
+  const [previousMessageCount, setPreviousMessageCount] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -135,6 +136,8 @@ export default function Chat() {
         ...appt,
         otherParty
       });
+      // Keep local video link state in sync with backend so both roles can join
+      setZoomLink(appt.zoom_join_url || "");
 
       // Fetch messages from all appointments in this conversation
       const { data: messagesData } = await api.get(`/messages/conversation?appointment_id=${appointmentId}`);
@@ -165,16 +168,18 @@ export default function Chat() {
   useEffect(() => {
     if (!authLoading && (user?._id || user?.id)) {
       fetchAppointmentAndMessages();
-      // Setup polling instead of realtime for now
-      const interval = setInterval(fetchAppointmentAndMessages, 5000); // Poll every 5s
-      return () => clearInterval(interval);
     }
   }, [appointmentId, user, role, authLoading, navigate]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom only when NEW messages arrive (not on every render)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (messages.length > previousMessageCount) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 0);
+      setPreviousMessageCount(messages.length);
+    }
+  }, [messages, previousMessageCount]);
 
   const handleSendMessage = async (e?: React.FormEvent, fileUrl?: string, fileType: 'text' | 'image' | 'file' = 'text') => {
     if (e) e.preventDefault();
@@ -279,14 +284,41 @@ export default function Chat() {
     }
   };
   
-  const generateVideoLink = () => {
+  const generateVideoLink = async () => {
     if (!appointment) return;
-    setZoomLink(`https://zoom.us/j/${appointment._id.slice(-8)}`);
+    
+    try {
+      setVideoLoading(true);
+      
+      // Step 1: Refresh/create the Zoom meeting from backend
+      const { data: updated } = await api.patch(`/appointments/${appointment._id}/refresh-zoom-meeting`);
+      
+      if (updated.video?.patientJoinUrl) {
+        setZoomLink(updated.video.patientJoinUrl);
+        
+        // Step 2: Auto-enable video and send notification to patient immediately
+        await api.put(`/appointments/${appointment._id}/permissions`, { 
+          video_unlocked: true, 
+          zoom_join_url: updated.video.patientJoinUrl,
+          auto_send: true // Auto-send notification to patient
+        });
+        
+        toast.success('Meeting started! Patient has been notified.');
+        await fetchAppointmentAndMessages();
+      } else {
+        toast.error('Failed to generate valid Zoom link');
+      }
+    } catch (err) {
+      console.error('Error refreshing zoom meeting', err);
+      toast.error('Failed to start meeting. Check backend logs for Zoom API errors.');
+    } finally {
+      setVideoLoading(false);
+    }
   };
   
   const enableVideo = async (send = true) => {
     if (!appointment || !zoomLink) {
-      toast.error('Please enter or generate a video link');
+      toast.error('Please generate a video link first');
       return;
     }
     try {
@@ -296,6 +328,7 @@ export default function Chat() {
         zoom_join_url: zoomLink,
         auto_send: !!send
       });
+
       toast.success(send ? 'Video enabled and link sent' : 'Video enabled');
       await fetchAppointmentAndMessages();
     } catch (err) {
@@ -344,16 +377,16 @@ export default function Chat() {
 
   return (
     <MainLayout>
-      <div className="container py-8 max-w-4xl mx-auto">
+      <div className="container px-4 sm:px-6 py-4 sm:py-8 max-w-4xl mx-auto h-screen flex flex-col">
         <Link
           to="/appointments"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+          className="inline-flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground mb-2 sm:mb-4"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3 sm:h-4 w-3 sm:w-4" />
           Back to appointments
         </Link>
 
-        <Card className="h-[calc(100vh-240px)] flex flex-col">
+        <Card className="flex-1 flex flex-col min-h-0">
           <ChatControlBar
             appointment={appointment}
             otherParty={appointment.otherParty}
@@ -372,11 +405,11 @@ export default function Chat() {
 
           {/* If patient and chat is locked, show read-only banner */}
           {role === 'patient' && !appointment.chat_unlocked && (
-            <div className="p-3 bg-yellow-50 border-b border-yellow-200 text-yellow-800 flex items-center gap-3">
-              <Lock className="h-5 w-5" />
+            <div className="p-2 sm:p-3 bg-yellow-50 border-b border-yellow-200 text-yellow-800 flex items-center gap-2 sm:gap-3">
+              <Lock className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
               <div>
-                <div className="font-medium">Chat is locked</div>
-                <div className="text-sm text-muted-foreground">The doctor has disabled chat for this appointment; you can read messages but cannot send new ones.</div>
+                <div className="font-medium text-sm sm:text-base">Chat is locked</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Doctor disabled chat; you can read but cannot send messages.</div>
               </div>
             </div>
           )}
@@ -435,8 +468,8 @@ export default function Chat() {
             </div>
           </ScrollArea>
 
-          <div className="border-t p-4 flex-shrink-0">
-            <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-2">
+          <div className="border-t p-2 sm:p-4 flex-shrink-0 bg-card">
+            <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-1 sm:gap-2 items-center">
               {/* Hidden File Input */}
               <input
                 type="file"
@@ -446,21 +479,21 @@ export default function Chat() {
                 accept="image/*,.pdf"
               />
 
-              <Button type="button" variant="ghost" size="icon" className="flex-shrink-0" onClick={triggerFileUpload} disabled={sending || (role === 'patient' && !appointment.chat_unlocked)}>
-                <Paperclip className="h-5 w-5" />
+              <Button type="button" variant="ghost" size="sm" className="h-8 w-8 sm:h-9 sm:w-9 p-0 flex-shrink-0" onClick={triggerFileUpload} disabled={sending || (role === 'patient' && !appointment.chat_unlocked)}>
+                <Paperclip className="h-4 sm:h-5 w-4 sm:w-5" />
               </Button>
-              <Button type="button" variant="ghost" size="icon" className="flex-shrink-0" onClick={triggerFileUpload} disabled={sending || (role === 'patient' && !appointment.chat_unlocked)}>
-                <ImageIcon className="h-5 w-5" />
+              <Button type="button" variant="ghost" size="sm" className="h-8 w-8 sm:h-9 sm:w-9 p-0 flex-shrink-0" onClick={triggerFileUpload} disabled={sending || (role === 'patient' && !appointment.chat_unlocked)}>
+                <ImageIcon className="h-4 sm:h-5 w-4 sm:w-5" />
               </Button>
               <Input
-                placeholder={role === 'patient' && !appointment.chat_unlocked ? 'Chat is read-only' : 'Type a message...'}
+                placeholder={role === 'patient' && !appointment.chat_unlocked ? 'Read-only' : 'Type a message...'}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1"
+                className="flex-1 text-sm h-8 sm:h-9"
                 disabled={sending || (role === 'patient' && !appointment.chat_unlocked)}
               />
-              <Button type="submit" size="icon" disabled={!newMessage.trim() || sending || (role === 'patient' && !appointment.chat_unlocked)}>
-                {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+              <Button type="submit" size="sm" className="h-8 w-8 sm:h-9 sm:w-9 p-0 flex-shrink-0" disabled={!newMessage.trim() || sending || (role === 'patient' && !appointment.chat_unlocked)}>
+                {sending ? <Loader2 className="h-4 sm:h-5 w-4 sm:w-5 animate-spin" /> : <Send className="h-4 sm:h-5 w-4 sm:w-5" />}
               </Button>
             </form>
           </div>

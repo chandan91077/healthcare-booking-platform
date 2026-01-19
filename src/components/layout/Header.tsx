@@ -272,17 +272,39 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <button
-          className="md:hidden"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          {mobileMenuOpen ? (
-            <X className="h-6 w-6" />
-          ) : (
-            <Menu className="h-6 w-6" />
+        {/* Mobile Menu Button with Notification Icon */}
+        <div className="md:hidden flex items-center gap-2">
+          {/* Notification Icon for Mobile */}
+          {isAuthenticated && (
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="relative h-10 w-10 rounded-full"
+              asChild
+            >
+              <Link to="/notifications">
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-white text-xs font-bold">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+            </Button>
           )}
-        </button>
+          
+          {/* Mobile Menu Toggle */}
+          <button
+            className="md:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
@@ -313,6 +335,12 @@ export function Header() {
             <div className="flex flex-col gap-2 pt-4 border-t border-border">
               {isAuthenticated ? (
                 <>
+                  <Button variant="outline" asChild>
+                    <Link to="/notifications" onClick={() => setMobileMenuOpen(false)}>
+                      <Bell className="h-4 w-4 mr-2" />
+                      Notifications {unreadCount > 0 && `(${unreadCount})`}
+                    </Link>
+                  </Button>
                   <Button variant="outline" asChild>
                     <Link to={getDashboardLink()} onClick={() => setMobileMenuOpen(false)}>
                       Dashboard

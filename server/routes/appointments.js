@@ -149,11 +149,76 @@ router.post('/', protect, async (req, res) => {
             video_unlocked: appointment_type === 'emergency',
         });
 
+        // Send appointment confirmation emails
+        try {
+            const emailService = require('../services/emailService');
+            const patient = await User.findById(patient_id);
+            const doctorWithUser = await Doctor.findById(doctor_id).populate('user_id', 'full_name email');
+            
+            const appointmentDate = new Date(appointment_date).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            
+            // Email to patient
+            await emailService.sendEmail({
+                to: patient.email,
+                subject: `Appointment ${appointment_type === 'emergency' ? 'Confirmed' : 'Booking Received'} - MediConnect`,
+                text: `Dear ${patient.full_name},\n\nYour ${appointment_type} appointment has been ${appointment_type === 'emergency' ? 'confirmed' : 'booked'}.\n\nAppointment Details:\n- Doctor: ${doctorWithUser.user_id?.full_name || 'Doctor'}\n- Date: ${appointmentDate}\n- Time: ${appointment_time}\n- Type: ${appointment_type}\n- Amount: ₹${amount}\n\n${appointment_type === 'emergency' ? 'Your emergency appointment is confirmed and payment has been processed.' : 'Please complete the payment to confirm your appointment.'}\n\nThank you for using MediConnect.\n\nBest regards,\nThe MediConnect Team`,
+                html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #10b981;">Appointment ${appointment_type === 'emergency' ? 'Confirmed' : 'Booking Received'}</h2>
+                    <p>Dear ${patient.full_name},</p>
+                    <p>Your ${appointment_type} appointment has been ${appointment_type === 'emergency' ? 'confirmed' : 'booked'}.</p>
+                    <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0;">Appointment Details</h3>
+                        <p><strong>Doctor:</strong> ${doctorWithUser.user_id?.full_name || 'Doctor'}</p>
+                        <p><strong>Date:</strong> ${appointmentDate}</p>
+                        <p><strong>Time:</strong> ${appointment_time}</p>
+                        <p><strong>Type:</strong> ${appointment_type}</p>
+                        <p><strong>Amount:</strong> ₹${amount}</p>
+                    </div>
+                    ${appointment_type === 'emergency' ? '<p style="color: #10b981; font-weight: bold;">Your emergency appointment is confirmed and payment has been processed.</p>' : '<p style="color: #f59e0b;">Please complete the payment to confirm your appointment.</p>'}
+                    <p>Best regards,<br/>The MediConnect Team</p>
+                </div>`
+            });
+            
+            // Email to doctor
+            if (doctorWithUser.user_id?.email) {
+                await emailService.sendEmail({
+                    to: doctorWithUser.user_id.email,
+                    subject: `New ${appointment_type === 'emergency' ? 'Emergency ' : ''}Appointment Booking - MediConnect`,
+                    text: `Dear Dr. ${doctorWithUser.user_id?.full_name},\n\nYou have a new ${appointment_type} appointment ${appointment_type === 'emergency' ? 'confirmed' : 'booking'}.\n\nAppointment Details:\n- Patient: ${patient.full_name}\n- Date: ${appointmentDate}\n- Time: ${appointment_time}\n- Type: ${appointment_type}\n- Amount: ₹${amount}\n\n${appointment_type === 'emergency' ? 'This is an emergency appointment and is already confirmed.' : 'The appointment is pending payment confirmation.'}\n\nBest regards,\nThe MediConnect Team`,
+                    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #10b981;">New ${appointment_type === 'emergency' ? 'Emergency ' : ''}Appointment Booking</h2>
+                        <p>Dear Dr. ${doctorWithUser.user_id?.full_name},</p>
+                        <p>You have a new ${appointment_type} appointment ${appointment_type === 'emergency' ? 'confirmed' : 'booking'}.</p>
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3 style="margin-top: 0;">Appointment Details</h3>
+                            <p><strong>Patient:</strong> ${patient.full_name}</p>
+                            <p><strong>Date:</strong> ${appointmentDate}</p>
+                            <p><strong>Time:</strong> ${appointment_time}</p>
+                            <p><strong>Type:</strong> ${appointment_type}</p>
+                            <p><strong>Amount:</strong> ₹${amount}</p>
+                        </div>
+                        ${appointment_type === 'emergency' ? '<p style="color: #ef4444; font-weight: bold;">This is an emergency appointment and is already confirmed.</p>' : '<p>The appointment is pending payment confirmation.</p>'}
+                        <p>Best regards,<br/>The MediConnect Team</p>
+                    </div>`
+                });
+            }
+        } catch (emailError) {
+            console.error('Failed to send appointment confirmation emails:', emailError);
+            // Don't fail the appointment creation if email fails
+        }
+
         // Create Zoom meeting for the appointment
         try {
             const patient = await User.findById(patient_id);
+            const doctor = await Doctor.findById(doctor_id).populate('user_id', 'full_name');
             const zoomMeeting = await zoomService.createMeeting({
                 patientName: patient.full_name,
+                doctorName: doctor.user_id?.full_name || 'Doctor',
                 appointment_date,
                 appointment_time,
             });
@@ -176,9 +241,13 @@ router.post('/', protect, async (req, res) => {
 router.put('/:id', protect, async (req, res) => {
     try {
         const { status, payment_status, notes } = req.body;
-        const appointment = await Appointment.findById(req.params.id);
+        const appointment = await Appointment.findById(req.params.id)
+            .populate('patient_id', 'full_name email')
+            .populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name email' } });
 
         if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
+
+        const previousStatus = appointment.status;
 
         // Authorization: only the doctor assigned or the patient can update (depending on field)
         // For status updates to 'confirmed'/'cancelled' by doctor:
@@ -196,6 +265,72 @@ router.put('/:id', protect, async (req, res) => {
         if (notes) appointment.notes = notes;
 
         await appointment.save();
+        
+        // Send email notification for status changes
+        if (status && status !== previousStatus) {
+            try {
+                const emailService = require('../services/emailService');
+                const appointmentDate = new Date(appointment.appointment_date).toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                
+                if (status === 'confirmed' && req.user.role === 'doctor') {
+                    // Notify patient that appointment is confirmed by doctor
+                    await emailService.sendEmail({
+                        to: appointment.patient_id.email,
+                        subject: 'Appointment Confirmed by Doctor - MediConnect',
+                        text: `Dear ${appointment.patient_id.full_name},\n\nGood news! Your appointment has been confirmed by ${appointment.doctor_id.user_id?.full_name || 'your doctor'}.\n\nAppointment Details:\n- Doctor: ${appointment.doctor_id.user_id?.full_name || 'Doctor'}\n- Date: ${appointmentDate}\n- Time: ${appointment.appointment_time}\n\nChat and video features have been enabled for this appointment.\n\nBest regards,\nThe MediConnect Team`,
+                        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #10b981;">✓ Appointment Confirmed</h2>
+                            <p>Dear ${appointment.patient_id.full_name},</p>
+                            <p style="color: #10b981; font-weight: bold;">Good news! Your appointment has been confirmed by ${appointment.doctor_id.user_id?.full_name || 'your doctor'}.</p>
+                            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                                <h3 style="margin-top: 0;">Appointment Details</h3>
+                                <p><strong>Doctor:</strong> ${appointment.doctor_id.user_id?.full_name || 'Doctor'}</p>
+                                <p><strong>Date:</strong> ${appointmentDate}</p>
+                                <p><strong>Time:</strong> ${appointment.appointment_time}</p>
+                            </div>
+                            <p>Chat and video features have been enabled for this appointment.</p>
+                            <p>Best regards,<br/>The MediConnect Team</p>
+                        </div>`
+                    });
+                } else if (status === 'cancelled') {
+                    // Notify the other party about cancellation
+                    const recipient = req.user.role === 'doctor' ? appointment.patient_id : appointment.doctor_id.user_id;
+                    const recipientName = req.user.role === 'doctor' ? appointment.patient_id.full_name : appointment.doctor_id.user_id?.full_name;
+                    const cancelledBy = req.user.role === 'doctor' ? 'the doctor' : 'the patient';
+                    
+                    if (recipient?.email) {
+                        await emailService.sendEmail({
+                            to: recipient.email,
+                            subject: 'Appointment Cancelled - MediConnect',
+                            text: `Dear ${recipientName},\n\nYour appointment has been cancelled by ${cancelledBy}.\n\nAppointment Details:\n- Doctor: ${appointment.doctor_id.user_id?.full_name || 'Doctor'}\n- Patient: ${appointment.patient_id.full_name}\n- Date: ${appointmentDate}\n- Time: ${appointment.appointment_time}\n\n${notes ? `Reason: ${notes}` : ''}\n\nIf you have any questions, please contact support.\n\nBest regards,\nThe MediConnect Team`,
+                            html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                                <h2 style="color: #ef4444;">Appointment Cancelled</h2>
+                                <p>Dear ${recipientName},</p>
+                                <p>Your appointment has been cancelled by ${cancelledBy}.</p>
+                                <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                                    <h3 style="margin-top: 0;">Appointment Details</h3>
+                                    <p><strong>Doctor:</strong> ${appointment.doctor_id.user_id?.full_name || 'Doctor'}</p>
+                                    <p><strong>Patient:</strong> ${appointment.patient_id.full_name}</p>
+                                    <p><strong>Date:</strong> ${appointmentDate}</p>
+                                    <p><strong>Time:</strong> ${appointment.appointment_time}</p>
+                                    ${notes ? `<p><strong>Reason:</strong> ${notes}</p>` : ''}
+                                </div>
+                                <p>If you have any questions, please contact support.</p>
+                                <p>Best regards,<br/>The MediConnect Team</p>
+                            </div>`
+                        });
+                    }
+                }
+            } catch (emailError) {
+                console.error('Failed to send status change email:', emailError);
+            }
+        }
+        
         res.json(appointment);
     } catch (error) {
         res.status(400).json({ message: error.message });
@@ -231,6 +366,38 @@ router.put('/:id/permissions', protect, async (req, res) => {
                     message: `Chat has been enabled for your appointment`,
                     data: { appointment_id: appointment._id }
                 });
+                
+                // Send email to patient
+                try {
+                    const emailService = require('../services/emailService');
+                    const appointmentDate = new Date(appointment.appointment_date).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    });
+                    
+                    await emailService.sendEmail({
+                        to: appointment.patient_id.email,
+                        subject: 'Chat Enabled for Your Appointment - MediConnect',
+                        text: `Dear ${appointment.patient_id.full_name},\n\nChat has been enabled for your appointment with ${appointment.doctor_id.user_id?.full_name || 'your doctor'}.\n\nYou can now message your doctor directly through the MediConnect platform.\n\nAppointment Details:\n- Date: ${appointmentDate}\n- Time: ${appointment.appointment_time}\n\nBest regards,\nThe MediConnect Team`,
+                        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #10b981;">💬 Chat Enabled</h2>
+                            <p>Dear ${appointment.patient_id.full_name},</p>
+                            <p>Chat has been enabled for your appointment with ${appointment.doctor_id.user_id?.full_name || 'your doctor'}.</p>
+                            <p style="color: #10b981; font-weight: bold;">You can now message your doctor directly through the MediConnect platform.</p>
+                            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                                <h3 style="margin-top: 0;">Appointment Details</h3>
+                                <p><strong>Date:</strong> ${appointmentDate}</p>
+                                <p><strong>Time:</strong> ${appointment.appointment_time}</p>
+                            </div>
+                            <p>Best regards,<br/>The MediConnect Team</p>
+                        </div>`
+                    });
+                } catch (emailError) {
+                    console.error('Failed to send chat enabled email:', emailError);
+                }
+                
                 // optional confirmation for doctor
                 if (doctor.user_id) {
                     await Notification.create({ user_id: doctor.user_id, type: 'chat_available_confirmation', message: `You enabled chat for the appointment on ${appointment.appointment_date}`, data: { appointment_id: appointment._id } });
@@ -467,10 +634,12 @@ router.patch('/:id/refresh-zoom-meeting', protect, async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to refresh meeting' });
         }
 
-        // Create new Zoom meeting
+        // Create new Zoom meeting (instant, starts immediately)
         const patient = await User.findById(appointment.patient_id);
+        const doctor = await Doctor.findById(appointment.doctor_id).populate('user_id', 'full_name');
         const zoomMeeting = await zoomService.createMeeting({
             patientName: patient.full_name,
+            doctorName: doctor.user_id?.full_name || 'Doctor',
             appointment_date: appointment.appointment_date,
             appointment_time: appointment.appointment_time,
         });

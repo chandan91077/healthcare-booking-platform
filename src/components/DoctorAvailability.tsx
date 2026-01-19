@@ -129,18 +129,18 @@ export function DoctorAvailability({ doctorId }: DoctorAvailabilityProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
+      <CardHeader className="pb-3 sm:pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Clock className="h-4 sm:h-5 w-4 sm:w-5" />
               Availability Schedule
             </CardTitle>
-            <CardDescription>
-              Set your available hours for each day of the week
+            <CardDescription className="text-xs sm:text-sm mt-1">
+              Set your available hours for each day
             </CardDescription>
           </div>
-          <Button onClick={saveAvailability} disabled={saving}>
+          <Button onClick={saveAvailability} disabled={saving} className="text-xs sm:text-sm w-full sm:w-auto">
             {saving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
@@ -151,17 +151,16 @@ export function DoctorAvailability({ doctorId }: DoctorAvailabilityProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="space-y-2 sm:space-y-4">
           {availability.map((slot) => {
             const day = DAYS.find((d) => d.value === slot.day_of_week);
             return (
               <div
                 key={slot.day_of_week}
-                className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${slot.is_available ? "bg-background" : "bg-muted/50"
-                  }`}
+                className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border transition-colors ${slot.is_available ? "bg-background" : "bg-muted/50"}`}
               >
-                <div className="w-28">
-                  <Label className="font-medium">{day?.label}</Label>
+                <div className="w-20 sm:w-28 flex-shrink-0">
+                  <Label className="font-medium text-sm sm:text-base">{day?.label}</Label>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -171,20 +170,20 @@ export function DoctorAvailability({ doctorId }: DoctorAvailabilityProps) {
                       updateSlot(slot.day_of_week, "is_available", checked)
                     }
                   />
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-xs sm:text-sm text-muted-foreground">
                     {slot.is_available ? "Available" : "Unavailable"}
                   </span>
                 </div>
 
                 {slot.is_available && (
-                  <div className="flex items-center gap-2 ml-auto">
+                  <div className="flex items-center gap-1 sm:gap-2 ml-0 sm:ml-auto flex-wrap">
                     <Select
                       value={slot.start_time}
                       onValueChange={(value) =>
                         updateSlot(slot.day_of_week, "start_time", value)
                       }
                     >
-                      <SelectTrigger className="w-24">
+                      <SelectTrigger className="w-20 sm:w-24 text-xs sm:text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -196,7 +195,7 @@ export function DoctorAvailability({ doctorId }: DoctorAvailabilityProps) {
                       </SelectContent>
                     </Select>
 
-                    <span className="text-muted-foreground">to</span>
+                    <span className="text-xs sm:text-sm text-muted-foreground">to</span>
 
                     <Select
                       value={slot.end_time}
@@ -204,7 +203,7 @@ export function DoctorAvailability({ doctorId }: DoctorAvailabilityProps) {
                         updateSlot(slot.day_of_week, "end_time", value)
                       }
                     >
-                      <SelectTrigger className="w-24">
+                      <SelectTrigger className="w-20 sm:w-24 text-xs sm:text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

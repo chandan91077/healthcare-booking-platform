@@ -242,39 +242,39 @@ export default function AppointmentDetails() {
 
   return (
     <MainLayout>
-      <div className="container py-8 max-w-4xl">
+      <div className="container px-4 sm:px-6 py-4 sm:py-8 max-w-4xl">
         {/* Back button */}
         <Link
           to="/appointments"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6"
+          className="inline-flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground mb-4 sm:mb-6"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3 sm:h-4 w-3 sm:w-4" />
           Back to Appointments
         </Link>
 
         {/* Doctor Information Card */}
         {appointment.doctor && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Stethoscope className="h-5 w-5" />
+          <Card className="mb-4 sm:mb-6">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <Stethoscope className="h-4 sm:h-5 w-4 sm:w-5" />
                 Doctor Information
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-start gap-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+                <Avatar className="h-12 sm:h-16 w-12 sm:w-16 flex-shrink-0">
+                  <AvatarFallback className="bg-primary/10 text-primary text-sm sm:text-lg font-semibold">
                     {(appointment.doctor.profile?.full_name || 'D').charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold">Dr. {appointment.doctor.profile?.full_name}</h3>
-                  <p className="text-muted-foreground mb-3">{appointment.doctor.specialization}</p>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-xl font-semibold">Dr. {appointment.doctor.profile?.full_name}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-3">{appointment.doctor.specialization}</p>
                   {appointment.notes && (
                     <div className="mt-2">
-                      <p className="text-sm font-medium mb-1">Appointment Notes:</p>
-                      <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                      <p className="text-xs sm:text-sm font-medium mb-1">Appointment Notes:</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground bg-muted p-2 rounded">
                         {appointment.notes}
                       </p>
                     </div>
@@ -286,54 +286,54 @@ export default function AppointmentDetails() {
         )}
 
         {/* Appointment Details Card */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
+        <Card className="mb-4 sm:mb-6">
+          <CardHeader className="pb-3 sm:pb-6">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Calendar className="h-4 sm:h-5 w-4 sm:w-5" />
               Appointment Details
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
               {/* Left Column */}
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Date</p>
-                  <p className="text-lg font-semibold">{format(new Date(appointment.appointment_date), 'MMMM dd, yyyy')}</p>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Date</p>
+                  <p className="text-base sm:text-lg font-semibold">{format(new Date(appointment.appointment_date), 'MMMM dd, yyyy')}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Time</p>
-                  <p className="text-lg font-semibold flex items-center gap-2">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Time</p>
+                  <p className="text-base sm:text-lg font-semibold flex items-center gap-2">
                     <Clock className="h-4 w-4" />
                     {appointment.appointment_time}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Status</p>
-                  <Badge className={getStatusColor(appointment.status)}>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Status</p>
+                  <Badge className={`${getStatusColor(appointment.status)} text-xs sm:text-sm`}>
                     {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
                   </Badge>
                 </div>
               </div>
 
               {/* Right Column */}
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Consultation Fee</p>
-                  <p className="text-lg font-semibold flex items-center gap-1">
-                    <IndianRupee className="h-5 w-5" />
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Consultation Fee</p>
+                  <p className="text-base sm:text-lg font-semibold flex items-center gap-1">
+                    <IndianRupee className="h-4 sm:h-5 w-4 sm:w-5" />
                     {appointment.amount}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Payment Status</p>
-                  <Badge className={getPaymentStatusColor(appointment.payment_status)}>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Payment Status</p>
+                  <Badge className={`${getPaymentStatusColor(appointment.payment_status)} text-xs sm:text-sm`}>
                     {appointment.payment_status.charAt(0).toUpperCase() + appointment.payment_status.slice(1)}
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Video Access</p>
-                  <Badge variant={appointment.video?.enabled ? "default" : "secondary"}>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Video Access</p>
+                  <Badge variant={appointment.video?.enabled ? "default" : "secondary"} className="text-xs sm:text-sm">
                     {appointment.video?.enabled ? "✓ Enabled" : "Not Available"}
                   </Badge>
                 </div>
@@ -341,13 +341,13 @@ export default function AppointmentDetails() {
             </div>
 
             {/* Communication Status */}
-            <div className="mt-6 pt-6 border-t">
-              <p className="text-sm font-medium text-muted-foreground mb-3">Communication Options</p>
-              <div className="flex gap-3">
-                <Badge variant={appointment.chat_unlocked ? "default" : "secondary"}>
+            <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t">
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 sm:mb-3">Communication Options</p>
+              <div className="flex flex-wrap gap-2 sm:gap-3">
+                <Badge variant={appointment.chat_unlocked ? "default" : "secondary"} className="text-xs sm:text-sm">
                   Chat: {appointment.chat_unlocked ? "✓ Enabled" : "Not Unlocked"}
                 </Badge>
-                <Badge variant={appointment.video?.enabled ? "default" : "secondary"}>
+                <Badge variant={appointment.video?.enabled ? "default" : "secondary"} className="text-xs sm:text-sm">
                   Video: {appointment.video?.enabled ? "✓ Enabled" : "Not Enabled"}
                 </Badge>
               </div>
@@ -357,24 +357,24 @@ export default function AppointmentDetails() {
 
         {/* Prescriptions Card */}
         {prescriptions.length > 0 && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Pill className="h-5 w-5" />
+          <Card className="mb-4 sm:mb-6">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <Pill className="h-4 sm:h-5 w-4 sm:w-5" />
                 Prescriptions ({prescriptions.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {prescriptions.map((prescription, index) => (
                   <div 
                     key={prescription._id} 
                     id={`prescription-${index}`}
-                    className="pb-6 border-b last:border-b-0 last:pb-0 bg-white p-6 rounded-lg"
+                    className="pb-4 sm:pb-6 border-b last:border-b-0 last:pb-0 bg-white p-3 sm:p-6 rounded-lg"
                   >
-                    <div className="mb-4">
-                      <h4 className="font-semibold text-lg mb-1">Prescription {index + 1}</h4>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="mb-3 sm:mb-4">
+                      <h4 className="font-semibold text-base sm:text-lg mb-1">Prescription {index + 1}</h4>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         {format(new Date(prescription.createdAt), 'MMM dd, yyyy')}
                       </p>
                       {prescription.doctor_id && (
@@ -386,21 +386,21 @@ export default function AppointmentDetails() {
 
                     {/* Diagnosis */}
                     {prescription.diagnosis && (
-                      <div className="mb-4">
-                        <p className="text-sm font-medium mb-1">Diagnosis</p>
-                        <p className="text-sm bg-muted p-2 rounded">{prescription.diagnosis}</p>
+                      <div className="mb-3 sm:mb-4">
+                        <p className="text-xs sm:text-sm font-medium mb-1">Diagnosis</p>
+                        <p className="text-xs sm:text-sm bg-muted p-2 rounded">{prescription.diagnosis}</p>
                       </div>
                     )}
 
                     {/* Medications */}
                     {prescription.medications && prescription.medications.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-sm font-medium mb-3">Medications</p>
-                        <div className="space-y-4">
+                      <div className="mb-3 sm:mb-4">
+                        <p className="text-xs sm:text-sm font-medium mb-2 sm:mb-3">Medications</p>
+                        <div className="space-y-2 sm:space-y-4">
                           {prescription.medications.map((med, idx) => (
-                            <div key={idx} className="bg-muted rounded-lg p-4 border border-border">
-                              <p className="font-semibold text-base mb-2">{med.name}</p>
-                              <div className="grid grid-cols-3 gap-3 text-xs">
+                            <div key={idx} className="bg-muted rounded-lg p-3 sm:p-4 border border-border">
+                              <p className="font-semibold text-sm sm:text-base mb-2">{med.name}</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 text-xs">
                                 <div>
                                   <p className="text-muted-foreground font-medium mb-1">Dosage</p>
                                   <p className="text-foreground font-semibold">{med.dosage}</p>
@@ -409,7 +409,7 @@ export default function AppointmentDetails() {
                                   <p className="text-muted-foreground font-medium mb-1">Frequency</p>
                                   <p className="text-foreground font-semibold">{med.frequency}</p>
                                 </div>
-                                <div>
+                                <div className="col-span-2 sm:col-span-1">
                                   <p className="text-muted-foreground font-medium mb-1">Duration</p>
                                   <p className="text-foreground font-semibold">{med.duration}</p>
                                 </div>
@@ -422,17 +422,17 @@ export default function AppointmentDetails() {
 
                     {/* Instructions */}
                     {prescription.instructions && (
-                      <div className="mb-4">
-                        <p className="text-sm font-medium mb-1">Instructions</p>
-                        <p className="text-sm bg-muted p-2 rounded">{prescription.instructions}</p>
+                      <div className="mb-3 sm:mb-4">
+                        <p className="text-xs sm:text-sm font-medium mb-1">Instructions</p>
+                        <p className="text-xs sm:text-sm bg-muted p-2 rounded">{prescription.instructions}</p>
                       </div>
                     )}
 
                     {/* Doctor Notes */}
                     {prescription.doctor_notes && (
-                      <div className="mb-4">
-                        <p className="text-sm font-medium mb-1">Doctor Notes</p>
-                        <p className="text-sm bg-muted p-2 rounded">{prescription.doctor_notes}</p>
+                      <div className="mb-3 sm:mb-4">
+                        <p className="text-xs sm:text-sm font-medium mb-1">Doctor Notes</p>
+                        <p className="text-xs sm:text-sm bg-muted p-2 rounded">{prescription.doctor_notes}</p>
                       </div>
                     )}
 
@@ -442,9 +442,10 @@ export default function AppointmentDetails() {
                         size="sm" 
                         variant="outline"
                         onClick={() => downloadPrescriptionPDF(prescription, index)}
+                        className="text-xs sm:text-sm w-full sm:w-auto"
                       >
-                        <Download className="h-4 w-4 mr-1" />
-                        Download Prescription
+                        <Download className="h-3 sm:h-4 w-3 sm:w-4 mr-1" />
+                        Download
                       </Button>
                     </div>
                   </div>
@@ -456,12 +457,12 @@ export default function AppointmentDetails() {
 
         {/* No Prescriptions Message */}
         {prescriptions.length === 0 && (
-          <Card className="mb-6">
-            <CardContent className="pt-6">
-              <div className="text-center py-8">
-                <Pill className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p className="text-muted-foreground">No prescriptions yet</p>
-                <p className="text-sm text-muted-foreground mt-1">
+          <Card className="mb-4 sm:mb-6">
+            <CardContent className="pt-4 sm:pt-6">
+              <div className="text-center py-6 sm:py-8">
+                <Pill className="h-10 sm:h-12 w-10 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-30" />
+                <p className="text-xs sm:text-sm text-muted-foreground">No prescriptions yet</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                   Prescriptions will appear here after your appointment
                 </p>
               </div>
@@ -470,12 +471,12 @@ export default function AppointmentDetails() {
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-3">
-          <Button asChild>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <Button asChild className="text-xs sm:text-sm w-full sm:w-auto">
             <Link to="/appointments">Back to Appointments</Link>
           </Button>
           {appointment.status === 'confirmed' && (appointment.chat_unlocked || role === 'doctor') && (
-            <Button variant="outline" asChild>
+            <Button variant="outline" asChild className="text-xs sm:text-sm w-full sm:w-auto">
               <Link to={`/chat/${appointment._id}`}>Open Chat</Link>
             </Button>
           )}

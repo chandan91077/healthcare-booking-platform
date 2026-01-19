@@ -20,7 +20,7 @@ import {
   Calendar,
   MessageSquare,
   Users,
-  IndianRupee,
+  TrendingUp,
   FileText,
   AlertTriangle,
   Camera,
@@ -352,18 +352,18 @@ export default function DoctorDashboard() {
 
   return (
     <MainLayout>
-      <div className="container py-8">
+      <div className="container px-4 sm:px-6 py-4 sm:py-6">
         {/* Profile Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-6">
-            <div className="relative group">
-              <Avatar className="h-20 w-20 border-2 border-primary/20">
+        <div className="mb-4 sm:mb-6">
+          <div className="flex items-start sm:items-center gap-3 sm:gap-6">
+            <div className="relative group flex-shrink-0">
+              <Avatar className="h-14 sm:h-20 w-14 sm:w-20 border-2 border-primary/20">
                 <AvatarImage
                   src={doctorData?.profile_image_url || undefined}
                   alt={doctorProfile?.full_name}
                   className="object-cover"
                 />
-                <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                <AvatarFallback className="text-lg sm:text-2xl bg-primary/10 text-primary">
                   {doctorProfile?.full_name?.charAt(0) || "D"}
                 </AvatarFallback>
               </Avatar>
@@ -380,82 +380,82 @@ export default function DoctorDashboard() {
                 className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               >
                 {uploadingPhoto ? (
-                  <Loader2 className="h-5 w-5 text-white animate-spin" />
+                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 text-white animate-spin" />
                 ) : (
-                  <Camera className="h-5 w-5 text-white" />
+                  <Camera className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                 )}
               </button>
             </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="font-heading text-3xl font-bold">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-heading text-xl sm:text-3xl font-bold">
                   Dr. {doctorProfile?.full_name || "Doctor"}
                 </h1>
-                <Badge className="bg-success text-success-foreground">
+                <Badge className="bg-success text-success-foreground text-xs sm:text-sm">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
                   Verified
                 </Badge>
               </div>
-              <p className="text-muted-foreground mt-1">
-                {doctorData?.specialization} • ₹{doctorData?.consultation_fee} per consultation
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                {doctorData?.specialization} • ₹{doctorData?.consultation_fee}/consultation
               </p>
               {(doctorData?.state || doctorData?.location) && (
-                <p className="mt-2 flex items-center text-sm text-muted-foreground gap-2"><MapPin className="h-4 w-4" />{doctorData?.state}{doctorData?.location ? ` • ${doctorData?.location}` : ''}</p>
+                <p className="mt-1 sm:mt-2 flex items-center text-xs sm:text-sm text-muted-foreground gap-2"><MapPin className="h-3 sm:h-4 w-3 sm:w-4 flex-shrink-0" /><span className="truncate">{doctorData?.state}{doctorData?.location ? ` • ${doctorData?.location}` : ''}</span></p>
               )}
             </div>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Calendar className="h-6 w-6 text-primary" />
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="h-10 sm:h-12 w-10 sm:w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Calendar className="h-5 sm:h-6 w-5 sm:w-6 text-primary" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.todayCount}</p>
-                  <p className="text-sm text-muted-foreground">Today</p>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold">{stats.todayCount}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Today</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-warning/10 flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-warning" />
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="h-10 sm:h-12 w-10 sm:w-12 rounded-full bg-warning/10 flex items-center justify-center flex-shrink-0">
+                  <Clock className="h-5 sm:h-6 w-5 sm:w-6 text-warning" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.pendingCount}</p>
-                  <p className="text-sm text-muted-foreground">Pending</p>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold">{stats.pendingCount}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Pending</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/doctor/earnings")}>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
-                  <IndianRupee className="h-6 w-6 text-success" />
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="h-10 sm:h-12 w-10 sm:w-12 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="h-5 sm:h-6 w-5 sm:w-6 text-success" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">View Details →</p>
-                  <p className="text-sm text-muted-foreground">Earnings</p>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold text-success">View Details</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Earnings</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-info/10 flex items-center justify-center">
-                  <Users className="h-6 w-6 text-info" />
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="h-10 sm:h-12 w-10 sm:w-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Users className="h-5 sm:h-6 w-5 sm:w-6 text-blue-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.totalPatients}</p>
-                  <p className="text-sm text-muted-foreground">Patients</p>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold">{stats.totalPatients}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Patients</p>
                 </div>
               </div>
             </CardContent>
@@ -463,48 +463,48 @@ export default function DoctorDashboard() {
         </div>
 
         {/* Today's Appointments */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Today's Appointments</CardTitle>
-            <CardDescription>{format(new Date(), "EEEE, MMMM d, yyyy")}</CardDescription>
+        <Card className="mb-4 sm:mb-6">
+          <CardHeader className="pb-3 sm:pb-6">
+            <CardTitle className="text-lg sm:text-xl">Today's Appointments</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">{format(new Date(), "EEEE, MMMM d, yyyy")}</CardDescription>
           </CardHeader>
           <CardContent>
             {todayAppointments.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No appointments scheduled for today</p>
+              <p className="text-center text-muted-foreground py-4 sm:py-8 text-sm">No appointments scheduled for today</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2 sm:space-y-4">
                 {todayAppointments.map((appt) => (
                   <div
                     key={appt.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-4">
-                      <Avatar>
-                        <AvatarFallback>{appt.patient?.full_name?.charAt(0) || "P"}</AvatarFallback>
+                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                      <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
+                        <AvatarFallback className="text-xs sm:text-sm">{appt.patient?.full_name?.charAt(0) || "P"}</AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="font-medium">{appt.patient?.full_name}</p>
-                        <p className="text-sm text-muted-foreground">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm sm:text-base truncate">{appt.patient?.full_name}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
                           {appt.appointment_time.slice(0, 5)} • {appt.appointment_type}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
                       {appt.status === 'pending' && (
                         <>
-                          <Button size="sm" onClick={() => handleUpdateStatus(appt._id, 'confirmed')} className="bg-success hover:bg-success/90">
+                          <Button size="sm" onClick={() => handleUpdateStatus(appt._id, 'confirmed')} className="bg-success hover:bg-success/90 text-xs sm:text-sm flex-1 sm:flex-none">
                             Accept
                           </Button>
-                          <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(appt._id, 'cancelled')}>
+                          <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(appt._id, 'cancelled')} className="text-xs sm:text-sm flex-1 sm:flex-none">
                             Reject
                           </Button>
                         </>
                       )}
                       {appt.status === 'confirmed' && (
                         <>
-                          <Button size="sm" variant="outline" asChild>
-                            <Link to={`/chat/${appt._id || appt.id}`}>
-                              <MessageSquare className="h-4 w-4 mr-1" />
+                          <Button size="sm" variant="outline" asChild className="text-xs sm:text-sm flex-1 sm:flex-none">
+                            <Link to={`/chat/${appt._id || appt.id}`} className="flex items-center gap-1">
+                              <MessageSquare className="h-3 sm:h-4 w-3 sm:w-4" />
                               Chat
                             </Link>
                           </Button>
@@ -519,40 +519,39 @@ export default function DoctorDashboard() {
         </Card>
 
         {/* Upcoming Appointments */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Upcoming Appointments</CardTitle>
+        <Card className="mb-4 sm:mb-6">
+          <CardHeader className="pb-3 sm:pb-6">
+            <CardTitle className="text-lg sm:text-xl">Upcoming Appointments</CardTitle>
           </CardHeader>
           <CardContent>
             {upcomingAppointments.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No upcoming appointments</p>
+              <p className="text-center text-muted-foreground py-4 sm:py-8 text-sm">No upcoming appointments</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2 sm:space-y-4">
                 {upcomingAppointments.slice(0, 5).map((appt) => (
                   <div
                     key={appt.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-4">
-                      <Avatar>
-                        <AvatarFallback>{appt.patient?.full_name?.charAt(0) || "P"}</AvatarFallback>
+                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                      <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
+                        <AvatarFallback className="text-xs sm:text-sm">{appt.patient?.full_name?.charAt(0) || "P"}</AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="font-medium">{appt.patient?.full_name}</p>
-                        <p className="text-sm text-muted-foreground">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm sm:text-base truncate">{appt.patient?.full_name}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
                           {format(new Date(appt.appointment_date), "MMM d")} at {appt.appointment_time.slice(0, 5)}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"}>
+                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                      <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"} className="text-xs">
                         {appt.appointment_type}
                       </Badge>
                       {appt.status === 'confirmed' && (
-                        <Button size="sm" variant="outline" asChild>
+                        <Button size="sm" variant="outline" asChild className="text-xs sm:text-sm">
                           <Link to={`/chat/${appt._id || appt.id}`}>
-                            <MessageSquare className="h-4 w-4 mr-1" />
-                            Chat
+                            <MessageSquare className="h-3 sm:h-4 w-3 sm:w-4" />
                           </Link>
                         </Button>
                       )}
@@ -565,20 +564,20 @@ export default function DoctorDashboard() {
         </Card>
 
         {/* Past Appointments */}
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex items-center justify-between">
+        <Card className="mb-4 sm:mb-6">
+          <CardHeader className="pb-3 sm:pb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <CardTitle>Past Appointments</CardTitle>
-                <CardDescription>View and search your completed appointments</CardDescription>
+                <CardTitle className="text-lg sm:text-xl">Past Appointments</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">View and search your completed appointments</CardDescription>
               </div>
               <Button
                 variant="outline"
                 onClick={() => navigate("/doctor/past-appointments")}
-                className="flex items-center gap-2"
+                className="text-xs sm:text-sm w-full sm:w-auto flex items-center gap-2"
               >
                 <Calendar className="h-4 w-4" />
-                View Past Appointments
+                View Past
               </Button>
             </div>
           </CardHeader>

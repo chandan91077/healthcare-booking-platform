@@ -179,36 +179,36 @@ export default function Doctors() {
   return (
     <MainLayout>
       <div className="bg-muted/50 py-12 border-b">
-        <div className="container">
-          <h1 className="font-heading text-3xl md:text-4xl font-bold mb-4">
+        <div className="container px-4 sm:px-6">
+          <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
             Find a Doctor
           </h1>
-          <p className="text-muted-foreground max-w-2xl">
+          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
             Browse our network of verified healthcare professionals and book your
             consultation today.
           </p>
         </div>
       </div>
 
-      <div className="container py-8">
+      <div className="container px-4 sm:px-6 py-6 sm:py-8">
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <div className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or specialization..."
-              className="pl-10"
+              className="pl-10 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          <div className="relative w-full md:w-[220px]">
+          <div className="relative w-full">
             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="stateFilter"
               placeholder="State (optional)"
-              className="pl-10"
+              className="pl-10 text-sm"
               value={selectedState}
               onChange={(e) => setSelectedState(e.target.value)}
             />
@@ -224,7 +224,7 @@ export default function Doctors() {
           </div>
 
           <Select value={selectedSpecialization} onValueChange={setSelectedSpecialization}>
-            <SelectTrigger className="w-full md:w-[200px]">
+            <SelectTrigger className="w-full text-sm">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Specialization" />
             </SelectTrigger>
@@ -237,7 +237,7 @@ export default function Doctors() {
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-full md:w-[180px]">
+            <SelectTrigger className="w-full text-sm">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -250,19 +250,19 @@ export default function Doctors() {
 
         {/* Results */}
         {loading ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Skeleton key={i} className="h-72 rounded-xl" />
             ))}
           </div>
         ) : filteredDoctors.length === 0 ? (
           <Card>
-            <CardContent className="p-12 text-center">
-              <Stethoscope className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-              <h3 className="font-heading text-xl font-semibold mb-2">
+            <CardContent className="p-6 sm:p-12 text-center">
+              <Stethoscope className="h-12 sm:h-16 w-12 sm:w-16 mx-auto mb-4 text-muted-foreground/50" />
+              <h3 className="font-heading text-lg sm:text-xl font-semibold mb-2">
                 No Doctors Found
               </h3>
-              <p className="text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 {doctors.length === 0
                   ? "No verified doctors are available at the moment. Please check back later."
                   : "Try adjusting your search filters to find doctors."}
@@ -271,10 +271,10 @@ export default function Doctors() {
           </Card>
         ) : (
           <>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-4">
               Showing {filteredDoctors.length} doctor{filteredDoctors.length !== 1 ? "s" : ""}
             </p>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {filteredDoctors.map((doctor) => (
                 <Card
                   key={doctor.id}

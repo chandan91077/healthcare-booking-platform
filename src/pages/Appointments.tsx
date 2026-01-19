@@ -310,13 +310,13 @@ export default function Appointments() {
             </div>
           </div>
 
-          <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex items-center gap-2 flex-wrap">
             {appointment.payment_status === "pending" && role === 'patient' ? (
-              <Button size="sm" asChild>
+              <Button size="sm" className="w-full sm:w-auto" asChild>
                 <Link to={`/payment/${appointment.id}`}>Complete Payment</Link>
               </Button>
             ) : (
-              <Button size="sm" asChild>
+              <Button size="sm" className="w-full sm:w-auto" asChild>
                 <Link to={canAccessChat ? `/chat/${appointment._id || appointment.id}` : `/appointment/${appointment.id}`}>
                   <MessageSquare className="h-4 w-4 mr-1" />
                   Open Visit
@@ -325,7 +325,7 @@ export default function Appointments() {
             )}
 
             {canAccessVideo && appointment.video?.enabled && appointment.video.patientJoinUrl && (
-              <Button size="sm" variant="ghost" asChild>
+              <Button size="sm" variant="ghost" className="w-full sm:w-auto" asChild>
                 <a
                   href={appointment.video.patientJoinUrl}
                   target="_blank"
@@ -464,30 +464,31 @@ export default function Appointments() {
 
   return (
     <MainLayout>
-      <div className="container py-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container px-4 sm:px-6 py-6 sm:py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0 mb-6 sm:mb-8">
           <div>
-            <h1 className="font-heading text-3xl font-bold mb-2">
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold mb-2">
               {role === "doctor" ? "Patient Appointments" : "My Appointments"}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               {role === "doctor" ? "Manage your patient consultations" : "Manage your healthcare appointments"}
             </p>
           </div>
           {role === "patient" && (
-            <Button asChild>
+            <Button asChild className="w-full sm:w-auto">
               <Link to="/doctors">Book New Appointment</Link>
             </Button>
           )}
         </div>
 
-        <Tabs defaultValue="upcoming">
-          <TabsList className="mb-6">
-            <TabsTrigger value="upcoming" className="gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              Upcoming ({upcomingAppointments.length})
+        <Tabs defaultValue="upcoming" className="w-full">
+          <TabsList className="mb-4 sm:mb-6 w-full overflow-x-auto flex">
+            <TabsTrigger value="upcoming" className="gap-2 text-xs sm:text-sm">
+              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+              <span>Upcoming ({upcomingAppointments.length})</span>
             </TabsTrigger>
-            <TabsTrigger value="pending" className="gap-2">
+            <TabsTrigger value="pending" className="gap-2 text-xs sm:text-sm">
+
               <AlertCircle className="h-4 w-4" />
               Pending ({pendingAppointments.length})
             </TabsTrigger>
