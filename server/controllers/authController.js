@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { sendEmail } = require('../services/emailService');
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -25,6 +26,32 @@ const registerUser = async (req, res) => {
         });
 
         if (user) {
+            // Send welcome email
+            try {
+                await sendEmail({
+                    to: user.email,
+                    subject: 'Welcome to MediConnect - Your Healthcare Platform',
+                    text: `Dear ${user.full_name},\n\nWelcome to MediConnect! Your account has been successfully created.\n\nYou can now:\n- Search and book appointments with verified doctors\n- Chat with your healthcare providers\n- Access your medical prescriptions\n- Manage your appointments\n\nThank you for choosing MediConnect for your healthcare needs.\n\nBest regards,\nThe MediConnect Team`,
+                    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #10b981;">Welcome to MediConnect!</h2>
+                        <p>Dear ${user.full_name},</p>
+                        <p>Your account has been successfully created. We're excited to have you join our healthcare platform.</p>
+                        <h3>What you can do now:</h3>
+                        <ul>
+                            <li>Search and book appointments with verified doctors</li>
+                            <li>Chat with your healthcare providers</li>
+                            <li>Access your medical prescriptions</li>
+                            <li>Manage your appointments</li>
+                        </ul>
+                        <p>Thank you for choosing MediConnect for your healthcare needs.</p>
+                        <p>Best regards,<br/>The MediConnect Team</p>
+                    </div>`
+                });
+            } catch (emailError) {
+                console.error('Failed to send welcome email:', emailError);
+                // Don't fail registration if email fails
+            }
+
             res.status(201).json({
                 _id: user._id,
                 full_name: user.full_name,

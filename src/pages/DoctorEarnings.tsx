@@ -168,12 +168,12 @@ export default function DoctorEarnings() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="container py-8">
-          <Skeleton className="h-8 w-48 mb-8" />
-          <div className="grid md:grid-cols-3 gap-4 mb-8">
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
+        <div className="container px-4 sm:px-6 py-4 sm:py-8">
+          <Skeleton className="h-6 sm:h-8 w-40 sm:w-48 mb-4 sm:mb-8" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
+            <Skeleton className="h-28 sm:h-32" />
+            <Skeleton className="h-28 sm:h-32" />
+            <Skeleton className="h-28 sm:h-32" />
           </div>
         </div>
       </MainLayout>
@@ -182,36 +182,37 @@ export default function DoctorEarnings() {
 
   return (
     <MainLayout>
-      <div className="container py-8">
+      <div className="container px-4 sm:px-6 py-4 sm:py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/doctor")}>
-              <ArrowLeft className="h-5 w-5" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-8">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/doctor")} className="h-9 w-9 sm:h-10 sm:w-10">
+              <ArrowLeft className="h-4 sm:h-5 w-4 sm:w-5" />
             </Button>
             <div>
-              <h1 className="font-heading text-3xl font-bold">Earnings</h1>
-              <p className="text-muted-foreground mt-1">Track your consultation earnings</p>
+              <h1 className="font-heading text-2xl sm:text-3xl font-bold">Earnings</h1>
+              <p className="text-muted-foreground mt-1 text-xs sm:text-sm">Track your consultation earnings</p>
             </div>
           </div>
-          <Button onClick={handleExport} className="gap-2">
+          <Button onClick={handleExport} className="gap-2 text-xs sm:text-sm h-9 sm:h-10 w-full sm:w-auto">
             <Download className="h-4 w-4" />
-            Export Report
+            <span className="hidden sm:inline">Export Report</span>
+            <span className="sm:hidden">Export</span>
           </Button>
         </div>
 
         {/* Filter */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <Filter className="h-5 w-5 text-muted-foreground" />
+        <Card className="mb-4 sm:mb-8">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Filter className="h-4 sm:h-5 w-4 sm:w-5 text-muted-foreground flex-shrink-0" />
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-64">
+                <SelectTrigger className="w-40 sm:w-64 text-sm">
                   <SelectValue placeholder="Select month" />
                 </SelectTrigger>
                 <SelectContent>
                   {monthOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem key={option.value} value={option.value} className="text-sm">
                       {option.label}
                     </SelectItem>
                   ))}
@@ -222,44 +223,44 @@ export default function DoctorEarnings() {
         </Card>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
-                  <IndianRupee className="h-6 w-6 text-success" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="h-10 sm:h-12 w-10 sm:w-12 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                  <IndianRupee className="h-5 sm:h-6 w-5 sm:w-6 text-success" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">₹{totalEarnings.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">Total Earnings</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold truncate">₹{totalEarnings.toLocaleString()}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Total Earnings</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Calendar className="h-6 w-6 text-primary" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="h-10 sm:h-12 w-10 sm:w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Calendar className="h-5 sm:h-6 w-5 sm:w-6 text-primary" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{totalAppointments}</p>
-                  <p className="text-sm text-muted-foreground">Consultations</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold truncate">{totalAppointments}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Consultations</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-info/10 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-info" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="h-10 sm:h-12 w-10 sm:w-12 rounded-full bg-info/10 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="h-5 sm:h-6 w-5 sm:w-6 text-info" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">₹{Math.round(averageEarning)}</p>
-                  <p className="text-sm text-muted-foreground">Avg per Consultation</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold truncate">₹{Math.round(averageEarning)}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Avg/Consultation</p>
                 </div>
               </div>
             </CardContent>
@@ -268,46 +269,46 @@ export default function DoctorEarnings() {
 
         {/* Earnings List */}
         <Card>
-          <CardHeader>
-            <CardTitle>Transaction History</CardTitle>
-            <CardDescription>
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-base sm:text-lg">Transaction History</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
               {filteredAppointments.length} consultation{filteredAppointments.length !== 1 ? "s" : ""} in{" "}
               {monthOptions.find(o => o.value === selectedMonth)?.label}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6">
             {filteredAppointments.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <IndianRupee className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No earnings found for the selected period</p>
+              <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                <IndianRupee className="h-10 sm:h-12 w-10 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                <p className="text-sm sm:text-base">No earnings found for the selected period</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {filteredAppointments.map((appt) => (
                   <div
                     key={appt._id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3 sm:gap-0"
                   >
-                    <div className="flex items-center gap-4 flex-1">
-                      <Avatar>
-                        <AvatarFallback>
+                    <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                      <Avatar className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0">
+                        <AvatarFallback className="text-sm">
                           {appt.patient_id?.full_name?.charAt(0) || "P"}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="font-medium">{appt.patient_id?.full_name || "Unknown"}</p>
-                        <p className="text-sm text-muted-foreground">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm sm:text-base truncate">{appt.patient_id?.full_name || "Unknown"}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
                           {format(new Date(appt.appointment_date), "dd MMM yyyy")} • {appt.appointment_time}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"}>
+                    <div className="flex items-center gap-2 sm:gap-4 justify-between sm:justify-end">
+                      <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"} className="text-xs">
                         {appt.appointment_type}
                       </Badge>
-                      <div className="text-right min-w-[100px]">
-                        <p className="text-lg font-semibold text-success">₹{appt.amount}</p>
+                      <div className="text-right min-w-[80px] sm:min-w-[100px]">
+                        <p className="text-sm sm:text-lg font-semibold text-success">₹{appt.amount}</p>
                         <Badge variant="outline" className="text-xs">
                           {appt.payment_status}
                         </Badge>

@@ -85,9 +85,12 @@ export default function ChatControlBar({
   };
 
   const handleJoinVideo = () => {
-    if (zoomLink) {
-      window.open(zoomLink, '_blank', 'noopener,noreferrer');
+    const link = appointment.zoom_join_url || zoomLink;
+    if (!link) {
+      toast.error('No video link available');
+      return;
     }
+    window.open(link, '_blank', 'noopener,noreferrer');
   };
 
   const handleMarkDone = async () => {
@@ -105,29 +108,42 @@ export default function ChatControlBar({
   };
 
   return (
-    <div className="border-b bg-card p-4">
-      <div className="flex items-center justify-between gap-4">
-        {/* Left side: Patient info */}
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarFallback className="bg-primary/10 text-primary">
-              {otherParty?.full_name?.charAt(0) || "P"}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-semibold text-sm">
-              {otherParty?.role === "doctor" ? "Dr. " : ""}
-              {otherParty?.full_name}
-            </p>
-            <p className="text-xs text-muted-foreground capitalize">
-              {otherParty?.role}
-            </p>
-          </div>
+    <div className="border-b bg-card p-2 sm:p-4">
+      {/* Patient info - always visible on top */}
+      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+        <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
+          <AvatarFallback className="bg-primary/10 text-primary text-xs sm:text-sm">
+            {otherParty?.full_name?.charAt(0) || "P"}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-xs sm:text-sm truncate">
+            {otherParty?.role === "doctor" ? "Dr. " : ""}
+            {otherParty?.full_name}
+          </p>
+          <p className="text-xs text-muted-foreground capitalize">
+            {otherParty?.role}
+          </p>
         </div>
 
-        {/* Right side: Doctor controls */}
-        {userRole === 'doctor' && (
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+        {/* Patient view: Show join video button if enabled */}
+        {userRole === 'patient' && appointment.video_unlocked && appointment.zoom_join_url && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleJoinVideo}
+            className="text-xs sm:text-sm flex-shrink-0"
+          >
+            <Video className="h-3 sm:h-4 w-3 sm:w-4 mr-1" />
+            <span className="hidden sm:inline">Join Video</span>
+            <span className="sm:hidden">Join</span>
+          </Button>
+        )}
+      </div>
+
+      {/* Doctor controls - separate row */}
+      {userRole === 'doctor' && (
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
             {/* Prescribe Button */}
             <PrescriptionModal
               appointmentId={appointment._id}
@@ -149,30 +165,32 @@ export default function ChatControlBar({
               size="sm"
               onClick={handleToggleChat}
               disabled={togglingChat}
-              className={appointment.chat_unlocked ? "bg-red-600 hover:bg-red-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"}
+              className={`text-xs sm:text-sm ${appointment.chat_unlocked ? "bg-red-600 hover:bg-red-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}
             >
               {togglingChat ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                <Loader2 className="h-3 sm:h-4 w-3 sm:w-4 mr-1 animate-spin" />
               ) : (
-                <MessageSquare className="h-4 w-4 mr-1" />
+                <MessageSquare className="h-3 sm:h-4 w-3 sm:w-4 mr-1" />
               )}
-              {appointment.chat_unlocked ? 'Disable Chat' : 'Enable Chat'}
+              <span className="hidden sm:inline">{appointment.chat_unlocked ? 'Disable Chat' : 'Enable Chat'}</span>
+              <span className="sm:hidden">{appointment.chat_unlocked ? 'Disable' : 'Enable'}</span>
             </Button>
 
             {/* Video Controls Section */}
             {!appointment.video_unlocked ? (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-wrap">
                 <Input
                   value={zoomLink}
                   onChange={(e) => setZoomLink(e.target.value)}
-                  placeholder="Enter/generate video link"
-                  className="h-8 text-xs w-40"
+                  placeholder="Video link"
+                  className="h-8 text-xs w-24 sm:w-40"
                 />
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={onGenerateVideo}
                   disabled={videoLoading}
+                  className="text-xs sm:text-sm whitespace-nowrap"
                 >
                   Generate
                 </Button>
@@ -180,21 +198,22 @@ export default function ChatControlBar({
                   size="sm"
                   onClick={onEnableVideo}
                   disabled={videoLoading || !zoomLink.trim()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm whitespace-nowrap"
                 >
-                  {videoLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                  Enable Video
+                  {videoLoading ? <Loader2 className="h-3 sm:h-4 w-3 sm:w-4 animate-spin mr-1" /> : null}
+                  <span className="hidden sm:inline">Enable Video</span>
+                  <span className="sm:hidden">Enable</span>
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-wrap">
                 {/* Display current video link */}
                 <div className="flex items-center gap-1 bg-muted rounded px-2 py-1 text-xs max-w-xs">
-                  <span className="truncate">{appointment.zoom_join_url || 'Video link'}</span>
+                  <span className="truncate text-xs">{appointment.zoom_join_url || 'Video link'}</span>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 w-6 p-0"
+                    className="h-5 w-5 p-0 flex-shrink-0"
                     onClick={handleCopyLink}
                   >
                     {copiedLink ? (
@@ -209,18 +228,20 @@ export default function ChatControlBar({
                   size="sm"
                   variant="secondary"
                   onClick={handleJoinVideo}
+                  className="text-xs sm:text-sm"
                 >
-                  <Video className="h-4 w-4 mr-1" />
-                  Join Video
+                  <Video className="h-3 sm:h-4 w-3 sm:w-4 mr-1" />
+                  <span className="hidden sm:inline">Join Video</span>
+                  <span className="sm:hidden">Join</span>
                 </Button>
 
                 <Button
                   size="sm"
                   onClick={onDisableVideo}
                   disabled={videoLoading}
-                  className="bg-red-600 hover:bg-red-700 text-white"
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm"
                 >
-                  Disable Video
+                  Disable
                 </Button>
               </div>
             )}
@@ -231,31 +252,19 @@ export default function ChatControlBar({
                 size="sm"
                 onClick={handleMarkDone}
                 disabled={markingDone}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm"
               >
                 {markingDone ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  <Loader2 className="h-3 sm:h-4 w-3 sm:w-4 mr-1 animate-spin" />
                 ) : (
-                  <CheckCircle className="h-4 w-4 mr-1" />
+                  <CheckCircle className="h-3 sm:h-4 w-3 sm:w-4 mr-1" />
                 )}
-                Mark as Done
+                <span className="hidden sm:inline">Mark as Done</span>
+                <span className="sm:hidden">Done</span>
               </Button>
             )}
-          </div>
-        )}
-
-        {/* Patient view: Show join video button if enabled */}
-        {userRole === 'patient' && appointment.video_unlocked && appointment.zoom_join_url && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleJoinVideo}
-          >
-            <Video className="h-4 w-4 mr-1" />
-            Join Video
-          </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

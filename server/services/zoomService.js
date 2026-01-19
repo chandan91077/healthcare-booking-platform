@@ -46,22 +46,26 @@ class ZoomService {
             const token = await this.getAccessToken();
 
             const meetingData = {
-                topic: `Appointment with ${appointmentData.patientName}`,
-                type: 2, // Scheduled meeting
-                start_time: `${appointmentData.appointment_date}T${appointmentData.appointment_time}:00Z`,
+                topic: appointmentData.doctorName ? `Appointment with Dr. ${appointmentData.doctorName}` : `Appointment with MediConnect`,
+                type: 1, // Instant meeting (starts immediately)
                 duration: 60, // 60 minutes
                 timezone: 'UTC',
                 agenda: `Medical consultation appointment`,
                 settings: {
                     host_video: true,
                     participant_video: true,
-                    join_before_host: false, // Doctor must join first
-                    waiting_room: true, // Enable waiting room
-                    use_pmi: false, // Don't use personal meeting ID
-                    approval_type: 0, // Automatically approve
-                    audio: 'both', // Both telephone and computer audio
-                    auto_recording: 'none', // No auto recording
-                    mute_upon_entry: true, // Mute participants when they join
+                    join_before_host: true, // Allow joining before host
+                    waiting_room: false, // No waiting room
+                    use_pmi: false,
+                    approval_type: 0, // Auto approve all participants
+                    audio: 'both',
+                    auto_recording: 'none',
+                    mute_upon_entry: false,
+                    require_password_for_scheduling_new_meetings: false,
+                    require_password_for_instant_meetings: false,
+                    require_password_for_pmi_meetings: false,
+                    allow_multiple_devices: true, // Allow multiple devices
+                    meeting_authentication: false, // No authentication required
                 },
             };
 
@@ -74,11 +78,15 @@ class ZoomService {
 
             const meeting = response.data;
 
+            // Use the actual join_url from Zoom API which allows joining without host
+            // Both doctor and patient use the same link and can join independently
+            const joinUrl = meeting.join_url || `https://zoom.us/j/${meeting.id}`;
+
             return {
                 provider: 'zoom',
                 meetingId: meeting.id.toString(),
-                doctorJoinUrl: meeting.start_url,
-                patientJoinUrl: meeting.join_url,
+                doctorJoinUrl: joinUrl, // Both use same join URL
+                patientJoinUrl: joinUrl, // Both can join immediately
                 enabled: false,
                 enabledAt: null,
             };

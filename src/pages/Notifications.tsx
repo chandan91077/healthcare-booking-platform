@@ -55,35 +55,120 @@ export default function NotificationsPage() {
     }
   };
 
+  // Get notification type color
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'video_link':
+        return 'border-l-4 border-l-blue-500 bg-blue-50/30';
+      case 'chat_available':
+        return 'border-l-4 border-l-green-500 bg-green-50/30';
+      case 'appointment_confirmed':
+        return 'border-l-4 border-l-emerald-500 bg-emerald-50/30';
+      case 'payment_success':
+        return 'border-l-4 border-l-purple-500 bg-purple-50/30';
+      case 'preempted':
+        return 'border-l-4 border-l-red-500 bg-red-50/30';
+      default:
+        return 'border-l-4 border-l-gray-500 bg-gray-50/30';
+    }
+  };
+
+  // Get notification type label
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'video_link':
+        return '📹 Video Call';
+      case 'chat_available':
+        return '💬 Chat Available';
+      case 'chat_available_confirmation':
+        return '💬 Chat Enabled';
+      case 'chat_disabled':
+        return '💬 Chat Disabled';
+      case 'appointment_confirmed':
+        return '✅ Appointment Confirmed';
+      case 'payment_success':
+        return '💰 Payment Success';
+      case 'preempted':
+        return '⚠️ Appointment Cancelled';
+      case 'message':
+        return '💌 New Message';
+      default:
+        return `📬 ${type}`;
+    }
+  };
+
   return (
     <MainLayout>
-      <div className="container py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="font-heading text-2xl font-semibold">Notifications</h1>
-          <div className="flex gap-2">
-            <Button onClick={markAllRead} size="sm" variant="outline">Mark all read</Button>
-            <Button onClick={clearAll} size="sm" variant="destructive">Clear all</Button>
+      <div className="container px-4 sm:px-6 py-4 sm:py-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+          <h1 className="font-heading text-2xl sm:text-3xl font-semibold">Notifications</h1>
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              onClick={markAllRead} 
+              size="sm" 
+              variant="outline"
+              className="text-xs sm:text-sm h-9 sm:h-10"
+            >
+              Mark all read
+            </Button>
+            <Button 
+              onClick={clearAll} 
+              size="sm" 
+              variant="destructive"
+              className="text-xs sm:text-sm h-9 sm:h-10"
+            >
+              Clear all
+            </Button>
           </div>
         </div>
 
-        <div className="space-y-4">
+        {/* Notifications List */}
+        <div className="space-y-3 sm:space-y-4">
           {notifications.length === 0 ? (
             <Card>
-              <CardContent className="p-8 text-center text-muted-foreground">No notifications</CardContent>
+              <CardContent className="p-6 sm:p-8 text-center text-muted-foreground">
+                <p className="text-sm sm:text-base">No notifications</p>
+              </CardContent>
             </Card>
           ) : (
             notifications.map((n) => (
-              <Card key={n._id} className={n.read ? 'opacity-60' : ''}>
-                <CardHeader>
-                  <CardTitle className="text-sm">{n.type}</CardTitle>
+              <Card 
+                key={n._id} 
+                className={`transition-all ${getTypeColor(n.type)} ${n.read ? 'opacity-60' : 'ring-1 ring-blue-200'}`}
+              >
+                <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-3">
+                  <CardTitle className="text-base sm:text-lg flex items-center justify-between">
+                    <span>{getTypeLabel(n.type)}</span>
+                    {!n.read && <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0"></span>}
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="mb-2">{n.message}</p>
-                  <div className="flex gap-2">
-                    {!n.read && <Button size="sm" onClick={() => markRead(n._id)}>Mark read</Button>}
+                <CardContent className="p-4 sm:p-6 pt-2 sm:pt-3">
+                  <p className="text-sm sm:text-base text-foreground mb-4 leading-relaxed">{n.message}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {!n.read && (
+                      <Button 
+                        size="sm" 
+                        onClick={() => markRead(n._id)}
+                        className="text-xs sm:text-sm h-8 sm:h-9"
+                      >
+                        Mark read
+                      </Button>
+                    )}
                     {(n.data?.zoom_join_url || n.data?.url || n.url) && (
-                      <Button size="sm" variant="ghost" asChild>
-                        <a href={n.data?.zoom_join_url || n.data?.url || n.url} target="_blank" rel="noopener noreferrer">Open Link</a>
+                      <Button 
+                        size="sm" 
+                        variant="default"
+                        className="text-xs sm:text-sm h-8 sm:h-9"
+                        asChild
+                      >
+                        <a 
+                          href={n.data?.zoom_join_url || n.data?.url || n.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                        >
+                          Open Link
+                        </a>
                       </Button>
                     )}
                   </div>
