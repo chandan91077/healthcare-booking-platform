@@ -21,7 +21,7 @@
         "node-cron": "^4.2.1",
         "nodemailer": "^7.0.12",
         "@sendgrid/mail": "^7.7.0",
-        "mailgun.js": "^6.2.0",
+        "mailgun.js": "^9.0.0",
         "form-data": "^4.0.0"
     },
     "devDependencies": {
