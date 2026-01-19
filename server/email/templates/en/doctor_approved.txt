@@ -1,0 +1,36 @@
+Dear Dr. {{doctorName}},
+
+✅ APPLICATION APPROVED - MEDICONNECT
+======================================
+
+Congratulations! Your application has been reviewed and APPROVED by our admin team. Your profile is now live on MediConnect!
+
+WHAT YOU CAN DO NOW:
+====================
+✓ Your profile is visible to patients
+✓ Start accepting appointment bookings
+✓ Set your availability schedule
+✓ Manage consultations and prescriptions
+✓ Access video call features
+
+YOUR PROFILE DETAILS:
+====================
+Specialization: {{specialization}}
+Experience: {{experienceYears}} years
+Consultation Fee: ₹{{consultationFee}}
+Emergency Fee: ₹{{emergencyFee}}
+Location: {{state}}
+
+Go to your dashboard: {{dashboardUrl}}
+
+We're thrilled to have you as part of the MediConnect family. Together, we're making healthcare more accessible!
+
+If you need any assistance getting started, our support team is here to help.
+
+Best regards,
+The MediConnect Team
+
+---
+MediConnect - Your Health, Our Priority
+For support, contact us at support@mediconnect.com
+© 2026 MediConnect. All rights reserved.

@@ -1,0 +1,34 @@
+Dear Dr. {{doctorName}},
+
+APPLICATION UPDATE - MEDICONNECT
+=================================
+
+We regret to inform you that your application could not be approved at this time.
+
+Thank you for your interest in joining MediConnect. After careful review of your application, we're unable to approve your profile at this time.
+
+REASON FOR REJECTION:
+=====================
+{{rejectionReason}}
+
+WHAT HAPPENS NEXT?
+==================
+• You can review the rejection reason above
+• Update your information or credentials if needed
+• Resubmit your application when ready
+
+💡 TIP: Make sure all your credentials are up-to-date and all required documents are clearly visible. Common issues include unclear document photos or expired certifications.
+
+Resubmit your application: {{dashboardUrl}}
+
+We encourage you to address the concerns mentioned and reapply. Our team carefully reviews each application to ensure the highest quality of healthcare professionals on our platform.
+
+If you have any questions or need clarification, please don't hesitate to contact our support team.
+
+Best regards,
+The MediConnect Team
+
+---
+MediConnect - Your Health, Our Priority
+For support, contact us at support@mediconnect.com
+© 2026 MediConnect. All rights reserved.

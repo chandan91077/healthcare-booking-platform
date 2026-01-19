@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; color: #666; font-size: 14px; }
+        .button { display: inline-block; padding: 12px 30px; background: #10b981; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .warning-box { background: #fee2e2; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ef4444; }
+        .info-box { background: #f0f9ff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Application Update</h1>
+        <p>Dr. {{doctorName}}</p>
+    </div>
+
+    <div class="content">
+        <div class="warning-box">
+            <h2 style="color: #ef4444; margin-top: 0;">Application Not Approved</h2>
+            <p style="margin-bottom: 0;">We regret to inform you that your application could not be approved at this time.</p>
+        </div>
+
+        <p>Dear Dr. {{doctorName}},</p>
+        
+        <p>Thank you for your interest in joining MediConnect. After careful review of your application, we're unable to approve your profile at this time.</p>
+
+        <p><strong>Reason for Rejection:</strong></p>
+        <div class="warning-box">
+            <p style="margin: 0;">{{rejectionReason}}</p>
+        </div>
+
+        <p><strong>What happens next?</strong></p>
+        <ul>
+            <li>You can review the rejection reason above</li>
+            <li>Update your information or credentials if needed</li>
+            <li>Resubmit your application when ready</li>
+        </ul>
+
+        <div class="info-box">
+            <p style="margin: 0;"><strong>💡 Tip:</strong> Make sure all your credentials are up-to-date and all required documents are clearly visible. Common issues include unclear document photos or expired certifications.</p>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="{{dashboardUrl}}" class="button">Resubmit Application</a>
+        </div>
+
+        <p>We encourage you to address the concerns mentioned and reapply. Our team carefully reviews each application to ensure the highest quality of healthcare professionals on our platform.</p>
+
+        <p>If you have any questions or need clarification, please don't hesitate to contact our support team.</p>
+
+        <p>Best regards,<br>
+        <strong>The MediConnect Team</strong></p>
+    </div>
+
+    <div class="footer">
+        <p><strong>MediConnect</strong> - Your Health, Our Priority</p>
+        <p>For support, contact us at support@mediconnect.com</p>
+        <p style="font-size: 12px; color: #999; margin-top: 15px;">
+            © 2026 MediConnect. All rights reserved.
+        </p>
+    </div>
+</body>
+</html>
