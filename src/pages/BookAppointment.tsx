@@ -405,8 +405,17 @@ export default function BookAppointment() {
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {timeSlots.map((slot) => {
                     const isSelected = selectedTime === slot.time;
-                    const isDisabled = !slot.available && appointmentType !== 'emergency';
                     const isBooked = bookedSlots.includes(slot.time);
+                    
+                    // Check if this slot is in the past (only for today's date)
+                    const now = new Date();
+                    const isToday = selectedDate && format(selectedDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+                    const [hours, minutes] = slot.time.split(':').map(Number);
+                    const slotTime = new Date();
+                    slotTime.setHours(hours, minutes, 0, 0);
+                    const isPastTime = isToday && slotTime < now;
+                    
+                    const isDisabled = (!slot.available && appointmentType !== 'emergency') || isPastTime;
 
                     return (
                       <button
@@ -414,7 +423,7 @@ export default function BookAppointment() {
                         disabled={isDisabled}
                         onClick={() => setSelectedTime(slot.time)}
                         className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${isDisabled
-                          ? "bg-muted text-muted-foreground cursor-not-allowed"
+                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50 blur-[0.5px]"
                           : isSelected
                             ? "bg-primary text-primary-foreground"
                             : "bg-secondary hover:bg-primary/10"

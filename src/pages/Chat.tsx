@@ -12,14 +12,15 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import api from "@/lib/api";
 import { uploadToS3 } from "@/lib/s3-upload";
+import ChatControlBar from "@/components/ChatControlBar";
 import {
   Send,
   ArrowLeft,
   Image as ImageIcon,
   Paperclip,
   Lock,
-  Video,
   Loader2,
+  FileText,
 } from "lucide-react";
 
 interface Message {
@@ -28,7 +29,7 @@ interface Message {
   content: string | null;
   file_url: string | null;
   message_type: string;
-  sender_id: string;
+  sender_id: string | any; // Can be ObjectId or populated user object
   created_at: string;
   is_read: boolean;
 }
@@ -36,6 +37,8 @@ interface Message {
 interface AppointmentDetails {
   _id: string;
   id?: string;
+  appointment_date?: string;
+  appointment_time?: string;
   chat_unlocked: boolean;
   video_unlocked: boolean;
   zoom_join_url: string | null;
@@ -47,8 +50,8 @@ interface AppointmentDetails {
     enabled: boolean;
     enabledAt: string | null;
   };
-  doctor_id: string;
-  patient_id: string;
+  doctor_id: any;
+  patient_id: any;
   otherParty: {
     id: string;
     full_name: string;
@@ -69,8 +72,9 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Prescriptions associated with this appointment
-  const [prescriptionsForAppointment, setPrescriptionsForAppointment] = useState<any[]>([]);
+  // Video controls state
+  const [zoomLink, setZoomLink] = useState<string>("");
+  const [videoLoading, setVideoLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -113,7 +117,7 @@ export default function Chat() {
       if (typeof otherPartyId === 'object') {
         otherParty = {
           id: otherPartyId._id,
-          full_name: otherPartyId.user_id?.full_name || "Unknown", // Doctor model has user_id ref
+          full_name: role === 'patient' ? (otherPartyId.user_id?.full_name || "Doctor") : (otherPartyId.full_name || "Patient"),
           role: role === 'patient' ? 'doctor' : 'patient'
         };
       } else {
@@ -165,21 +169,6 @@ export default function Chat() {
       return () => clearInterval(interval);
     }
   }, [appointmentId, user, role, authLoading, navigate]);
-
-  // Fetch prescriptions for this appointment
-  useEffect(() => {
-    const fetchPrescriptionsForAppointment = async () => {
-      if (!appointmentId) return;
-      try {
-        const { data } = await api.get(`/prescriptions/appointment/${appointmentId}`);
-        setPrescriptionsForAppointment(data || []);
-      } catch (err) {
-        // ignore
-      }
-    };
-
-    fetchPrescriptionsForAppointment();
-  }, [appointmentId]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -288,6 +277,48 @@ export default function Chat() {
       toast.error('Failed to toggle chat');
     }
   };
+  
+  const generateVideoLink = () => {
+    if (!appointment) return;
+    setZoomLink(`https://zoom.us/j/${appointment._id.slice(-8)}`);
+  };
+  
+  const enableVideo = async (send = true) => {
+    if (!appointment || !zoomLink) {
+      toast.error('Please enter or generate a video link');
+      return;
+    }
+    try {
+      setVideoLoading(true);
+      await api.put(`/appointments/${appointment._id}/permissions`, { 
+        video_unlocked: true, 
+        zoom_join_url: zoomLink,
+        auto_send: !!send
+      });
+      toast.success(send ? 'Video enabled and link sent' : 'Video enabled');
+      await fetchAppointmentAndMessages();
+    } catch (err) {
+      console.error('Error enabling video', err);
+      toast.error('Failed to enable video');
+    } finally {
+      setVideoLoading(false);
+    }
+  };
+  
+  const disableVideo = async () => {
+    if (!appointment) return;
+    try {
+      setVideoLoading(true);
+      await api.put(`/appointments/${appointment._id}/permissions`, { video_unlocked: false });
+      toast.success('Video disabled');
+      await fetchAppointmentAndMessages();
+    } catch (err) {
+      console.error('Error disabling video', err);
+      toast.error('Failed to disable video');
+    } finally {
+      setVideoLoading(false);
+    }
+  };
 
   // No early return: allow read access even when chat is locked. Input will be disabled for patients if locked.
 
@@ -304,50 +335,20 @@ export default function Chat() {
         </Link>
 
         <Card className="h-[calc(100vh-240px)] flex flex-col">
-          <CardHeader className="border-b flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {appointment.otherParty?.full_name?.charAt(0) || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <CardTitle className="text-lg">
-                    {appointment.otherParty?.role === "doctor" ? "Dr. " : ""}
-                    {appointment.otherParty?.full_name}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground capitalize">
-                    {appointment.otherParty?.role}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {appointment.video?.enabled && appointment.video.patientJoinUrl && (
-                  <Button variant="outline" asChild>
-                    <a
-                      href={appointment.video.patientJoinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        window.open(appointment.video.patientJoinUrl, '_blank', 'noopener,noreferrer');
-                      }}
-                    >
-                      <Video className="h-4 w-4 mr-2" />
-                      Join Video
-                    </a>
-                  </Button>
-                )}
-
-                {role === 'doctor' && (
-                  <Button variant="outline" onClick={toggleChat} className="ml-2">
-                    {appointment.chat_unlocked ? 'Disable Chat' : 'Enable Chat'}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardHeader>
+          <ChatControlBar
+            appointment={appointment}
+            otherParty={appointment.otherParty}
+            userRole={role}
+            onToggleChat={toggleChat}
+            onGenerateVideo={generateVideoLink}
+            onEnableVideo={() => enableVideo(true)}
+            onDisableVideo={disableVideo}
+            videoLoading={videoLoading}
+            zoomLink={zoomLink}
+            setZoomLink={setZoomLink}
+            doctorName={appointment.doctor_id?.user_id?.full_name || "Dr. Doctor"}
+            doctorSpecialization={appointment.doctor_id?.specialization || "Physician"}
+          />
 
           {/* If patient and chat is locked, show read-only banner */}
           {role === 'patient' && !appointment.chat_unlocked && (
@@ -360,23 +361,6 @@ export default function Chat() {
             </div>
           )}
 
-          {/* Prescriptions summary for this appointment */}
-          {prescriptionsForAppointment.length > 0 && (
-            <div className="p-3 border-b">
-              <h3 className="text-sm font-medium mb-2">Prescriptions</h3>
-              <ul className="text-sm space-y-1">
-                {prescriptionsForAppointment.map((presc: any) => (
-                  <li key={presc._id} className="">
-                    <div className="font-medium">{presc.title || 'Prescription'}</div>
-                    <div className="text-muted-foreground">
-                      {presc.medications?.map((m: any) => (`${m.name} — ${m.dose || ''} ${m.frequency ? `• ${m.frequency}` : ''} ${m.duration ? `• ${m.duration}` : ''}`)).join('; ')}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-4">
               {messages.length === 0 ? (
@@ -385,9 +369,9 @@ export default function Chat() {
                 </p>
               ) : (
                 messages.map((message) => {
-                  const senderId = typeof message.sender_id === 'object' ? (message.sender_id._id || message.sender_id) : message.sender_id;
+                  const senderId = typeof message.sender_id === 'object' && message.sender_id ? (message.sender_id._id || message.sender_id) : message.sender_id;
                   const isOwn = senderId === (user?._id || user?.id); // compare with fallback _id or id
-                  const senderName = typeof message.sender_id === 'object' ? message.sender_id.full_name : null;
+                  const senderName = typeof message.sender_id === 'object' && message.sender_id ? message.sender_id.full_name : null;
                   return (
                     <div
                       key={message._id || message.id}

@@ -227,10 +227,10 @@ function RecentMessages() {
           </div>
           <div className="flex items-center gap-2">
             {c.unreadCount > 0 && <Badge variant="destructive">{c.unreadCount}</Badge>}
-            {c.video?.enabled && c.video?.doctorInCall ? (
-              <Video className="h-6 w-6 text-green-500 hover:text-green-600 cursor-pointer" />
+            {(c.video?.enabled) ? (
+              <Video className="h-6 w-6 text-emerald-600 hover:text-emerald-700 cursor-pointer" title="Video enabled" />
             ) : (
-              <Video className="h-6 w-6 text-gray-400 cursor-not-allowed" />
+              <Video className="h-6 w-6 text-red-600 hover:text-red-700 cursor-pointer" title="Video disabled" />
             )}
             <Button size="sm" asChild>
               <Link to={`/chat/${c.appointment_id}`}>Open</Link>

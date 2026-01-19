@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { IndianRupee, MapPin } from "lucide-react";
+import { IndianRupee, MapPin, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export default function DoctorProfile() {
   const { doctorId } = useParams();
   const [doctor, setDoctor] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showCertificate, setShowCertificate] = useState(false);
 
   useEffect(() => {
     async function fetchDoctor() {
@@ -52,8 +53,12 @@ export default function DoctorProfile() {
       <div className="container py-8 max-w-4xl mx-auto">
         <div className="flex items-start gap-6 mb-6">
           <Avatar className="h-24 w-24">
-            {doctor.user_id?.avatar_url ? (
-              <AvatarImage src={doctor.user_id.avatar_url} alt={doctor.user_id.full_name} />
+            {(doctor.profile_image_url || doctor.user_id?.avatar_url) ? (
+              <AvatarImage 
+                src={doctor.profile_image_url || doctor.user_id.avatar_url} 
+                alt={doctor.user_id.full_name}
+                className="object-cover"
+              />
             ) : (
               <AvatarFallback className="bg-primary/10 text-primary text-2xl">{doctor.user_id?.full_name?.charAt(0) || 'D'}</AvatarFallback>
             )}
@@ -87,34 +92,41 @@ export default function DoctorProfile() {
             {doctor.medical_license_url && (
               <Card className="mb-6">
                 <CardHeader>
-                  <CardTitle>Certificate</CardTitle>
-                  <CardDescription>Uploaded medical license</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Certificate</CardTitle>
+                      <CardDescription>Uploaded medical license</CardDescription>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCertificate(!showCertificate)}
+                    >
+                      {showCertificate ? (
+                        <>
+                          <EyeOff className="h-4 w-4 mr-2" />
+                          Hide
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <a href={doctor.medical_license_url} target="_blank" rel="noopener noreferrer">
-                    <img src={doctor.medical_license_url} alt="Certificate" className="max-w-full rounded" />
-                  </a>
-                </CardContent>
+                {showCertificate && (
+                  <CardContent>
+                    <a href={doctor.medical_license_url} target="_blank" rel="noopener noreferrer">
+                      <img src={doctor.medical_license_url} alt="Certificate" className="max-w-full rounded" />
+                    </a>
+                  </CardContent>
+                )}
               </Card>
             )}
           </div>
 
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Consultation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">Fee</p>
-                <p className="text-lg font-semibold flex items-center gap-2"><IndianRupee />{doctor.consultation_fee}</p>
-                <div className="mt-4">
-                  <Link to={`/book/${doctor._id}`}>
-                    <Button>Book Appointment</Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
     </MainLayout>

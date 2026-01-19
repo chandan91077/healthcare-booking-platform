@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Doctor = require('../models/Doctor');
+const User = require('../models/User');
 const { protect } = require('../middleware/authMiddleware');
 
 // Register a doctor
@@ -57,7 +58,7 @@ router.get('/admin/all', protect, async (req, res) => {
     }
 });
 
-// Admin: Delete doctor
+// Admin: Delete doctor (also delete linked user account)
 router.delete('/:id', protect, async (req, res) => {
     // Check if admin
     if (req.user.role !== 'admin') {
@@ -70,10 +71,17 @@ router.delete('/:id', protect, async (req, res) => {
             return res.status(404).json({ message: 'Doctor not found' });
         }
 
-        // Optionally delete the user account too?
-        // For now, just delete doctor profile.
+        const userId = doctor.user_id;
+
+        // Remove the doctor profile
         await doctor.deleteOne();
-        res.json({ message: 'Doctor removed' });
+
+        // Also remove the linked user account so they cannot sign in again
+        if (userId) {
+            await User.findByIdAndDelete(userId);
+        }
+
+        res.json({ message: 'Doctor and user removed' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

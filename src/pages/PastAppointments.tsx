@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { getDoctorProfile, getProfile } from "@/lib/auth";
 import api from "@/lib/api";
@@ -11,9 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format, isFuture } from "date-fns";
+import { format, isPast } from "date-fns";
 import { toast } from "sonner";
-import { ArrowLeft, Calendar, Search } from "lucide-react";
+import { ArrowLeft, Calendar, Search, MessageSquare, FileText, IndianRupee } from "lucide-react";
+import { PrescriptionModal } from "@/components/PrescriptionModal";
 
 interface DoctorData {
   _id: string;
@@ -139,7 +140,7 @@ export default function PastAppointments() {
   }, [user, isLoading, isAuthenticated, role]);
 
   const pastAppointments = appointments.filter(
-    (a) => !isFuture(new Date(a.appointment_date)) && (a.status === "completed" || a.status === "cancelled")
+    (a) => a.status === "completed" || (a.status === "confirmed" && isPast(new Date(a.appointment_date)))
   ).sort((a, b) => new Date(b.appointment_date).getTime() - new Date(a.appointment_date).getTime());
 
   const filteredPastAppointments = pastAppointments.filter((appt) => {
@@ -267,40 +268,142 @@ export default function PastAppointments() {
             ) : (
               <div className="space-y-4">
                 {filteredPastAppointments.map((appt) => (
-                  <div
-                    key={appt.id}
-                    className="flex items-center justify-between p-6 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-12 w-12">
-                        <AvatarFallback className="text-lg">
-                          {appt.patient?.full_name?.charAt(0) || "P"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-lg">{appt.patient?.full_name}</p>
-                          <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"}>
-                            {appt.appointment_type}
+                  <Card key={appt.id} className="overflow-hidden">
+                    <CardContent className="p-0">
+                      <div className="flex items-center justify-between p-6 bg-card border-b">
+                        <div className="flex items-center gap-4 flex-1">
+                          <Avatar className="h-12 w-12">
+                            <AvatarFallback className="text-lg">
+                              {appt.patient?.full_name?.charAt(0) || "P"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-semibold text-lg">{appt.patient?.full_name}</p>
+                              <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"}>
+                                {appt.appointment_type}
+                              </Badge>
+                            </div>
+                            <div className="flex gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                {format(new Date(appt.appointment_date), "MMM d, yyyy")} at {appt.appointment_time.slice(0, 5)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <IndianRupee className="h-4 w-4" />
+                                {appt.amount}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <Badge
+                            variant={appt.status === "completed" ? "default" : "destructive"}
+                            className="px-3 py-1"
+                          >
+                            {appt.status}
                           </Badge>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(appt.appointment_date), "EEEE, MMMM d, yyyy")} at {appt.appointment_time.slice(0, 5)}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Amount: ₹{appt.amount}
-                        </p>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        variant={appt.status === "completed" ? "default" : "destructive"}
-                        className="px-3 py-1"
-                      >
-                        {appt.status}
-                      </Badge>
-                    </div>
-                  </div>
+
+                      <div className="flex flex-wrap gap-2 p-4 bg-muted/30">
+                        {/* Chat button */}
+                        {appt.chat_unlocked ? (
+                          <>
+                            <Button size="sm" variant="outline" asChild>
+                              <Link to={`/chat/${appt._id || appt.id}`}>
+                                <MessageSquare className="h-4 w-4 mr-1" />
+                                Chat
+                              </Link>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={async () => {
+                                try {
+                                  await api.put(
+                                    `/appointments/${appt._id || appt.id}/permissions`,
+                                    { chat_unlocked: false }
+                                  );
+                                  toast.success("Chat disabled");
+                                  // Refetch appointments
+                                  const { data: appointmentsData } = await api.get("/appointments");
+                                  const mappedAppointments = appointmentsData.map((a: any) => ({
+                                    ...a,
+                                    id: a._id,
+                                    patient: a.patient_id
+                                      ? {
+                                          _id: a.patient_id._id,
+                                          full_name: a.patient_id.full_name,
+                                          email: a.patient_id.email,
+                                        }
+                                      : null,
+                                  }));
+                                  setAppointments(mappedAppointments);
+                                } catch (err) {
+                                  console.error("Error disabling chat", err);
+                                  toast.error("Failed to disable chat");
+                                }
+                              }}
+                            >
+                              Disable Chat
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={async () => {
+                              try {
+                                await api.put(
+                                  `/appointments/${appt._id || appt.id}/permissions`,
+                                  { chat_unlocked: true }
+                                );
+                                toast.success("Chat enabled");
+                                // Refetch appointments
+                                const { data: appointmentsData } = await api.get("/appointments");
+                                const mappedAppointments = appointmentsData.map((a: any) => ({
+                                  ...a,
+                                  id: a._id,
+                                  patient: a.patient_id
+                                    ? {
+                                        _id: a.patient_id._id,
+                                        full_name: a.patient_id.full_name,
+                                        email: a.patient_id.email,
+                                      }
+                                    : null,
+                                }));
+                                setAppointments(mappedAppointments);
+                              } catch (err) {
+                                console.error("Error enabling chat", err);
+                                toast.error("Failed to enable chat");
+                              }
+                            }}
+                          >
+                            Enable Chat
+                          </Button>
+                        )}
+
+                        {/* Prescribe button */}
+                        <PrescriptionModal
+                          appointmentId={appt._id}
+                          patientId={appt.patient_id?._id || appt.patient_id}
+                          patientName={appt.patient?.full_name || "Patient"}
+                          doctorId={doctorData?._id || doctorData?.id}
+                          doctorName={doctorProfile?.full_name || "Doctor"}
+                          doctorSpecialization={doctorData?.specialization || "Physician"}
+                        />
+
+                        {/* View Details button */}
+                        <Button size="sm" variant="ghost" asChild>
+                          <Link to={`/appointment/${appt.id}`}>
+                            <FileText className="h-4 w-4 mr-1" />
+                            View Details
+                          </Link>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}
