@@ -587,4 +587,141 @@ router.patch('/:id/chat/toggle', protect, async (req, res) => {
     }
 });
 
+// Mark appointment as completed/done (doctor only) - sends completion email with prescription
+router.post('/:id/mark-done', protect, async (req, res) => {
+    try {
+        const appointmentId = req.params.id;
+        
+        let appointment = await Appointment.findById(appointmentId)
+            .populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name email' } })
+            .populate('patient_id', 'full_name email locale');
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Check if user is authorized (doctor who owns appointment)
+        if (req.user.role !== 'doctor') {
+            return res.status(403).json({ message: 'Only doctors can mark appointments as done' });
+        }
+
+        const doctor = await Doctor.findOne({ user_id: req.user._id });
+        if (!doctor) {
+            return res.status(403).json({ message: 'Doctor profile not found' });
+        }
+
+        // Ensure doctor_id is properly extracted
+        const apptDoctorId = appointment.doctor_id._id || appointment.doctor_id;
+        const userDoctorId = doctor._id;
+
+        if (apptDoctorId.toString() !== userDoctorId.toString()) {
+            return res.status(403).json({ message: 'Not authorized to complete this appointment' });
+        }
+
+        // Update appointment status to completed
+        appointment.status = 'completed';
+        appointment.payment_status = 'paid'; // Use 'paid' instead of 'completed'
+        appointment.chat_unlocked = false; // Lock chat after completion
+        
+        await appointment.save();
+
+        // Fetch prescription for this appointment (if exists)
+        let prescription = null;
+        try {
+            const Prescription = require('../models/Prescription');
+            prescription = await Prescription.findOne({ 
+                appointment_id: appointmentId 
+            }).sort({ createdAt: -1 }).limit(1);
+        } catch (prescErr) {
+            console.log('Note: Could not fetch prescription:', prescErr.message);
+        }
+
+        // Prepare email data
+        const { renderTemplate } = require('../utils/renderTemplate');
+        const emailService = require('../services/emailService');
+        
+        const patientLocale = (appointment.patient_id && appointment.patient_id.locale) || 'en';
+        const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/dashboard`;
+        
+        const doctorName = doctor.user_id?.full_name || 'Doctor';
+        const patientName = appointment.patient_id?.full_name || 'Patient';
+        const patientEmail = appointment.patient_id?.email;
+
+        if (!patientEmail) {
+            console.warn('Patient email not found, skipping email send');
+        }
+
+        const templateData = {
+            patientName: patientName,
+            doctorName: doctorName,
+            doctorSpecialization: doctor.specialization || 'Physician',
+            appointmentDate: appointment.appointment_date,
+            appointmentTime: appointment.appointment_time,
+            dashboardUrl: dashboardUrl,
+            hasPrescription: !!prescription,
+            diagnosis: prescription?.diagnosis || '',
+            medications: prescription?.medications || [],
+            instructions: prescription?.instructions || '',
+            doctorNotes: prescription?.doctor_notes || '',
+            prescriptionPdfUrl: prescription?.pdf_url || ''
+        };
+
+        const tplBasePath = path.join(__dirname, '..', 'email', 'templates', patientLocale, 'consultation_completed');
+        
+        // Render email templates
+        let emailText = '', emailHtml = '';
+        try {
+            emailText = renderTemplate(tplBasePath + '.txt', templateData);
+            emailHtml = renderTemplate(tplBasePath + '.html', templateData);
+        } catch (err) {
+            console.error('Template rendering error:', err.message);
+            // Fallback to simple text email
+            emailText = `Dear ${templateData.patientName},\n\nThank you for your consultation with Dr. ${templateData.doctorName} on ${templateData.appointmentDate} at ${templateData.appointmentTime}.\n\nYour consultation has been completed. Please visit your dashboard at ${dashboardUrl} to view details.\n\nBest regards,\nThe MediConnect Team`;
+            emailHtml = emailText.replace(/\n/g, '<br>');
+        }
+
+        // Send email notification
+        const Notification = require('../models/Notification');
+        try {
+            await Notification.create({
+                user_id: appointment.patient_id._id || appointment.patient_id,
+                type: 'appointment_completed',
+                message: `Your consultation with Dr. ${doctorName} has been completed. Check your email for details and prescription.`,
+                data: { 
+                    appointment_id: appointment._id,
+                    prescription_id: prescription?._id
+                }
+            });
+        } catch (notifErr) {
+            console.error('Failed to create notification:', notifErr.message);
+        }
+
+        // Send email synchronously (wait for it to complete)
+        let emailSent = false;
+        if (patientEmail) {
+            try {
+                await emailService.sendEmail({
+                    to: patientEmail,
+                    subject: `Consultation Completed - Thank You for Choosing MediConnect`,
+                    text: emailText,
+                    html: emailHtml
+                });
+                emailSent = true;
+                console.log('Consultation completion email sent successfully to:', patientEmail);
+            } catch (emailErr) {
+                console.error('Failed to send completion email:', emailErr.message);
+            }
+        }
+
+        res.json({
+            message: 'Appointment marked as completed successfully',
+            appointment: appointment,
+            emailSent: emailSent
+        });
+    } catch (error) {
+        console.error('Mark done error:', error);
+        res.status(500).json({ message: 'Failed to mark appointment as done', error: error.message });
+    }
+});
+
 module.exports = router;

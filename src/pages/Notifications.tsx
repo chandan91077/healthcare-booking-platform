@@ -44,12 +44,26 @@ export default function NotificationsPage() {
     }
   };
 
+  const clearAll = async () => {
+    try {
+      const { data } = await api.delete('/notifications/clear-all');
+      setNotifications([]);
+      toast({ title: `Cleared ${data?.deletedCount ?? 0} notifications` });
+    } catch (err) {
+      console.error('Error clearing notifications', err);
+      toast({ title: 'Failed to clear notifications' });
+    }
+  };
+
   return (
     <MainLayout>
       <div className="container py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="font-heading text-2xl font-semibold">Notifications</h1>
-          <Button onClick={markAllRead} size="sm">Mark all read</Button>
+          <div className="flex gap-2">
+            <Button onClick={markAllRead} size="sm" variant="outline">Mark all read</Button>
+            <Button onClick={clearAll} size="sm" variant="destructive">Clear all</Button>
+          </div>
         </div>
 
         <div className="space-y-4">

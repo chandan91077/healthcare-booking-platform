@@ -48,6 +48,16 @@ router.put('/mark-all-read', protect, async (req, res) => {
     }
 });
 
+// Clear all notifications for current user
+router.delete('/clear-all', protect, async (req, res) => {
+    try {
+        const result = await Notification.deleteMany({ user_id: req.user._id });
+        res.json({ deletedCount: result.deletedCount || 0 });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Get notification preferences
 router.get('/preferences', protect, async (req, res) => {
     try {
