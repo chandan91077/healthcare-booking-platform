@@ -141,7 +141,8 @@ export default function DoctorDashboard() {
             (a: any) => a.status === "completed" || a.payment_status === "completed"
           );
 
-          const uniquePatients = new Set(completedAppts.map((a: any) => a.patient?._id).filter(Boolean));
+          // Count all unique patients from all appointments, not just completed
+          const uniquePatients = new Set(mappedAppointments.map((a: any) => a.patient?._id).filter(Boolean));
           const totalEarnings = completedAppts.reduce((sum: number, a: any) => sum + (a.amount || 0), 0);
 
           setStats({
@@ -433,14 +434,14 @@ export default function DoctorDashboard() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/doctor/earnings")}>
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
                   <IndianRupee className="h-6 w-6 text-success" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">₹{stats.totalEarnings}</p>
+                  <p className="text-2xl font-bold">View Details →</p>
                   <p className="text-sm text-muted-foreground">Earnings</p>
                 </div>
               </div>

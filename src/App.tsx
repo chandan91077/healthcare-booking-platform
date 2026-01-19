@@ -17,7 +17,9 @@ import Doctors from "./pages/Doctors";
 import BookAppointment from "./pages/BookAppointment";
 import Payment from "./pages/Payment";
 import Appointments from "./pages/Appointments";
+import AppointmentDetails from "./pages/AppointmentDetails";
 import Chat from "./pages/Chat";
+import Messages from "./pages/Messages";
 import Prescriptions from "./pages/Prescriptions";
 import NotificationsPage from "./pages/Notifications";
 import Settings from "./pages/Settings";
@@ -25,6 +27,7 @@ import NotFound from "./pages/NotFound";
 import Specializations from "./pages/Specializations";
 import AboutUs from "./pages/AboutUs";
 import PastAppointments from "./pages/PastAppointments";
+import DoctorEarnings from "./pages/DoctorEarnings";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +45,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/doctor" element={<DoctorDashboard />} />
             <Route path="/doctor/register" element={<DoctorRegister />} />
+            <Route path="/doctor/earnings" element={<DoctorEarnings />} />
             <Route path="/doctor/past-appointments" element={<PastAppointments />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/doctors" element={<Doctors />} />
@@ -49,6 +53,8 @@ const App = () => (
             <Route path="/doctor/:doctorId" element={/* lazy mount */ <React.Suspense fallback={<div />}><DoctorProfile /></React.Suspense>} />
             <Route path="/payment/:appointmentId" element={<Payment />} />
             <Route path="/appointments" element={<Appointments />} />
+            <Route path="/appointment/:appointmentId" element={<AppointmentDetails />} />
+            <Route path="/messages" element={<Messages />} />
             <Route path="/chat/:appointmentId" element={<Chat />} />
             <Route path="/prescriptions" element={<Prescriptions />} />
             <Route path="/notifications" element={<NotificationsPage />} />

@@ -106,7 +106,7 @@ export default function Dashboard() {
           </Card>
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
-              <Link to="/appointments" className="flex flex-col items-center text-center gap-3">
+              <Link to="/messages" className="flex flex-col items-center text-center gap-3">
                 <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
                   <MessageSquare className="h-6 w-6 text-success" />
                 </div>

@@ -1,0 +1,70 @@
+Dear {{patientName}},
+
+CONSULTATION COMPLETED
+======================
+
+Thank you for your consultation with Dr. {{doctorName}} ({{doctorSpecialization}}) on {{appointmentDate}} at {{appointmentTime}}.
+
+We hope you had a positive experience with our platform. Your health and well-being are our top priorities.
+
+{{#if hasPrescription}}
+YOUR PRESCRIPTION
+=================
+
+{{#if diagnosis}}
+Diagnosis: {{diagnosis}}
+{{/if}}
+
+{{#if medications}}
+Medications:
+{{#each medications}}
+- {{this.name}}
+  Dosage: {{this.dosage}}
+  Frequency: {{this.frequency}}
+  Duration: {{this.duration}}
+
+{{/each}}
+{{/if}}
+
+{{#if instructions}}
+Important Instructions:
+{{instructions}}
+{{/if}}
+
+{{#if doctorNotes}}
+Doctor's Notes:
+{{doctorNotes}}
+{{/if}}
+
+{{#if prescriptionPdfUrl}}
+Download Prescription PDF: {{prescriptionPdfUrl}}
+{{/if}}
+{{/if}}
+
+CONSULTATION DETAILS
+====================
+Doctor: Dr. {{doctorName}}
+Specialization: {{doctorSpecialization}}
+Date: {{appointmentDate}}
+Time: {{appointmentTime}}
+
+WHAT'S NEXT?
+============
+- Follow the prescribed medications and instructions carefully
+- You can view your prescription anytime in your MediConnect dashboard
+- If you have any questions, feel free to reach out to our support team
+- Book a follow-up appointment if recommended by your doctor
+
+View your dashboard: {{dashboardUrl}}
+
+We appreciate your trust in MediConnect and hope to serve you again soon!
+
+Best wishes for your health,
+The MediConnect Team
+
+---
+MediConnect - Your Health, Our Priority
+For support, contact us at support@mediconnect.com
+
+This is an automated email. Please do not reply to this message.
+© 2026 MediConnect. All rights reserved.

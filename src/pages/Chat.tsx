@@ -39,6 +39,7 @@ interface AppointmentDetails {
   id?: string;
   appointment_date?: string;
   appointment_time?: string;
+  status?: string;
   chat_unlocked: boolean;
   video_unlocked: boolean;
   zoom_join_url: string | null;
@@ -320,6 +321,24 @@ export default function Chat() {
     }
   };
 
+  const markAsDone = async () => {
+    if (!appointment) return;
+    try {
+      await api.post(`/appointments/${appointment._id}/mark-done`);
+      toast.success('Appointment marked as completed! Patient will receive an email with prescription details.');
+      // Refresh appointment data
+      await fetchAppointmentAndMessages();
+      // Optionally redirect to appointments
+      setTimeout(() => {
+        navigate('/doctor');
+      }, 2000);
+    } catch (err: any) {
+      console.error('Error marking appointment as done', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Failed to mark appointment as done';
+      toast.error(errorMessage);
+    }
+  };
+
   // No early return: allow read access even when chat is locked. Input will be disabled for patients if locked.
 
 
@@ -343,6 +362,7 @@ export default function Chat() {
             onGenerateVideo={generateVideoLink}
             onEnableVideo={() => enableVideo(true)}
             onDisableVideo={disableVideo}
+            onMarkDone={markAsDone}
             videoLoading={videoLoading}
             zoomLink={zoomLink}
             setZoomLink={setZoomLink}

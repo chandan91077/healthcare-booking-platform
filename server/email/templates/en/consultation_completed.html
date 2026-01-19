@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .content {
+            background: #ffffff;
+            padding: 30px;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+        }
+        .prescription-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .prescription-box h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        .medication {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #e0e0e0;
+        }
+        .medication-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+        }
+        .medication-details {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .diagnosis {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 10px 10px;
+            color: #666;
+            font-size: 14px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .doctor-info {
+            background: #f0f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏥 Consultation Completed</h1>
+        <p>Thank you for choosing MediConnect</p>
+    </div>
+
+    <div class="content">
+        <p>Dear {{patientName}},</p>
+        
+        <p>Thank you for your consultation with <strong>Dr. {{doctorName}}</strong> ({{doctorSpecialization}}) on {{appointmentDate}} at {{appointmentTime}}.</p>
+
+        <p>We hope you had a positive experience with our platform. Your health and well-being are our top priorities.</p>
+
+        {{#if hasPrescription}}
+        <div class="prescription-box">
+            <h3>📋 Your Prescription</h3>
+            
+            {{#if diagnosis}}
+            <div class="diagnosis">
+                <strong>Diagnosis:</strong> {{diagnosis}}
+            </div>
+            {{/if}}
+
+            {{#if medications}}
+            <h4>Medications:</h4>
+            {{#each medications}}
+            <div class="medication">
+                <div class="medication-name">💊 {{this.name}}</div>
+                <div class="medication-details">
+                    <strong>Dosage:</strong> {{this.dosage}}<br>
+                    <strong>Frequency:</strong> {{this.frequency}}<br>
+                    <strong>Duration:</strong> {{this.duration}}
+                </div>
+            </div>
+            {{/each}}
+            {{/if}}
+
+            {{#if instructions}}
+            <div class="instructions">
+                <strong>⚠️ Important Instructions:</strong><br>
+                {{instructions}}
+            </div>
+            {{/if}}
+
+            {{#if doctorNotes}}
+            <div style="margin-top: 15px; padding: 10px; background: white; border-radius: 5px;">
+                <strong>Doctor's Notes:</strong><br>
+                {{doctorNotes}}
+            </div>
+            {{/if}}
+
+            {{#if prescriptionPdfUrl}}
+            <a href="{{prescriptionPdfUrl}}" class="button" style="display: inline-block; margin-top: 15px;">
+                📄 Download Prescription PDF
+            </a>
+            {{/if}}
+        </div>
+        {{/if}}
+
+        <div class="doctor-info">
+            <strong>Consultation Details:</strong><br>
+            Doctor: Dr. {{doctorName}}<br>
+            Specialization: {{doctorSpecialization}}<br>
+            Date: {{appointmentDate}}<br>
+            Time: {{appointmentTime}}
+        </div>
+
+        <p><strong>What's Next?</strong></p>
+        <ul>
+            <li>Follow the prescribed medications and instructions carefully</li>
+            <li>You can view your prescription anytime in your MediConnect dashboard</li>
+            <li>If you have any questions, feel free to reach out to our support team</li>
+            <li>Book a follow-up appointment if recommended by your doctor</li>
+        </ul>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{dashboardUrl}}" class="button">
+                View Dashboard
+            </a>
+        </div>
+
+        <p>We appreciate your trust in MediConnect and hope to serve you again soon!</p>
+
+        <p style="margin-top: 30px;">
+            Best wishes for your health,<br>
+            <strong>The MediConnect Team</strong>
+        </p>
+    </div>
+
+    <div class="footer">
+        <p><strong>MediConnect</strong> - Your Health, Our Priority</p>
+        <p>For support, contact us at support@mediconnect.com</p>
+        <p style="font-size: 12px; color: #999; margin-top: 15px;">
+            This is an automated email. Please do not reply to this message.<br>
+            © 2026 MediConnect. All rights reserved.
+        </p>
+    </div>
+</body>
+</html>

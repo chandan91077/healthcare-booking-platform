@@ -173,6 +173,20 @@ export function Header() {
                           Manage Preferences
                         </Link>
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="w-full justify-start text-xs"
+                        onClick={async () => {
+                          try {
+                            await api.delete('/notifications/clear-all');
+                            setRecentNotifs([]);
+                            setUnreadCount(0);
+                          } catch (e) { console.error(e); }
+                        }}
+                      >
+                        Clear All
+                      </Button>
                     </div>
                   </div>
 

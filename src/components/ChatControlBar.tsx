@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Copy,
   Check,
+  CheckCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ interface ChatControlBarProps {
     doctor_id: any;
     appointment_date?: string;
     appointment_time?: string;
+    status?: string;
     chat_unlocked: boolean;
     video_unlocked: boolean;
     zoom_join_url?: string;
@@ -34,6 +36,7 @@ interface ChatControlBarProps {
   onGenerateVideo: () => void;
   onEnableVideo: () => Promise<void>;
   onDisableVideo: () => Promise<void>;
+  onMarkDone: () => Promise<void>;
   videoLoading: boolean;
   zoomLink: string;
   setZoomLink: (link: string) => void;
@@ -49,6 +52,7 @@ export default function ChatControlBar({
   onGenerateVideo,
   onEnableVideo,
   onDisableVideo,
+  onMarkDone,
   videoLoading,
   zoomLink,
   setZoomLink,
@@ -57,6 +61,7 @@ export default function ChatControlBar({
 }: ChatControlBarProps) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [togglingChat, setTogglingChat] = useState(false);
+  const [markingDone, setMarkingDone] = useState(false);
 
   const patientId = typeof appointment.patient_id === 'object' ? appointment.patient_id._id : appointment.patient_id;
   const doctorId = typeof appointment.doctor_id === 'object' ? appointment.doctor_id._id : appointment.doctor_id;
@@ -82,6 +87,20 @@ export default function ChatControlBar({
   const handleJoinVideo = () => {
     if (zoomLink) {
       window.open(zoomLink, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleMarkDone = async () => {
+    // Confirm before marking as done
+    if (!confirm('Mark this appointment as completed? The patient will receive an email with consultation details and prescription.')) {
+      return;
+    }
+    
+    setMarkingDone(true);
+    try {
+      await onMarkDone();
+    } finally {
+      setMarkingDone(false);
     }
   };
 
@@ -204,6 +223,23 @@ export default function ChatControlBar({
                   Disable Video
                 </Button>
               </div>
+            )}
+
+            {/* Mark as Done Button */}
+            {appointment.status !== 'completed' && (
+              <Button
+                size="sm"
+                onClick={handleMarkDone}
+                disabled={markingDone}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {markingDone ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                )}
+                Mark as Done
+              </Button>
             )}
           </div>
         )}

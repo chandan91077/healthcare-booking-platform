@@ -119,7 +119,7 @@ export default function Appointments() {
           doctor: appt.doctor_id ? {
             id: appt.doctor_id._id,
             specialization: appt.doctor_id.specialization,
-            profile: { full_name: "Dr. " + (appt.doctor_id.user_id?.full_name || "Unknown") }
+            profile: { full_name: appt.doctor_id.user_id?.full_name || "Unknown" }
           } : null,
           patient: appt.patient_id ? {
             full_name: appt.patient_id.full_name
@@ -211,7 +211,7 @@ export default function Appointments() {
           doctor: appt.doctor_id ? {
             id: appt.doctor_id._id,
             specialization: appt.doctor_id.specialization,
-            profile: { full_name: "Dr. " + (appt.doctor_id.user_id?.full_name || "Unknown") }
+            profile: { full_name: appt.doctor_id.user_id?.full_name || "Unknown" }
           } : null,
           patient: appt.patient_id ? { full_name: appt.patient_id.full_name } : null
         }));
@@ -320,15 +320,6 @@ export default function Appointments() {
                 <Link to={canAccessChat ? `/chat/${appointment._id || appointment.id}` : `/appointment/${appointment.id}`}>
                   <MessageSquare className="h-4 w-4 mr-1" />
                   Open Visit
-                </Link>
-              </Button>
-            )}
-
-            {canAccessChat && (
-              <Button size="sm" variant="ghost" asChild>
-                <Link to={`/chat/${appointment._id || appointment.id}`}>
-                  <MessageSquare className="h-4 w-4 mr-1" />
-                  Chat
                 </Link>
               </Button>
             )}
@@ -613,7 +604,7 @@ export default function Appointments() {
                   doctor: appt.doctor_id ? {
                     id: appt.doctor_id._id,
                     specialization: appt.doctor_id.specialization,
-                    profile: { full_name: "Dr. " + (appt.doctor_id.user_id?.full_name || "Unknown") }
+                    profile: { full_name: appt.doctor_id.user_id?.full_name || "Unknown" }
                   } : null,
                   patient: appt.patient_id ? {
                     full_name: appt.patient_id.full_name
