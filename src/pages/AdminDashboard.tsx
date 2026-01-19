@@ -39,6 +39,11 @@ interface DoctorApplication {
   is_verified: boolean;
   verification_status: string;
   rejection_reason: string | null;
+  rejection_history?: Array<{
+    reason: string;
+    date: Date | string;
+    rejectedAt: string;
+  }>;
   created_at: string;
   profiles: {
     full_name: string;
@@ -171,18 +176,40 @@ export default function AdminDashboard() {
 
     setProcessing(true);
     try {
-      await api.put(`/doctors/${selectedDoctor.id}`, {
+      // Get current rejection history from database (fetch fresh data to ensure we have all previous rejections)
+      const { data: freshDoctor } = await api.get(`/doctors/${selectedDoctor.id}`);
+      const currentHistory = freshDoctor.rejection_history || [];
+      
+      const newRejection = {
+        reason: rejectReason,
+        date: new Date(),
+        rejectedAt: new Date().toISOString()
+      };
+      
+      // Update with fresh history + new rejection
+      const updatedResponse = await api.put(`/doctors/${selectedDoctor.id}`, {
         verification_status: "rejected",
         rejection_reason: rejectReason,
+        rejection_history: [
+          ...currentHistory,
+          newRejection
+        ]
       });
 
       // Send rejection email (placeholder)
       console.log("Send rejection email placeholder");
 
+      // Update local state with response data from backend
+      const updatedDoctor = updatedResponse.data;
       setDoctors((prev) =>
         prev.map((d) =>
           d.id === selectedDoctor.id
-            ? { ...d, verification_status: "rejected", rejection_reason: rejectReason }
+            ? { 
+                ...d, 
+                verification_status: updatedDoctor.verification_status,
+                rejection_reason: updatedDoctor.rejection_reason,
+                rejection_history: updatedDoctor.rejection_history || []
+              }
             : d
         )
       );
@@ -218,7 +245,10 @@ export default function AdminDashboard() {
 
   const pendingDoctors = doctors.filter((d) => d.verification_status === "pending");
   const approvedDoctors = doctors.filter((d) => d.verification_status === "approved");
-  const rejectedDoctors = doctors.filter((d) => d.verification_status === "rejected");
+  // Show doctors in the Rejected tab if they are currently rejected OR if they have any rejection history
+  const rejectedDoctors = doctors.filter(
+    (d) => d.verification_status === "rejected" || (d.rejection_history && d.rejection_history.length > 0)
+  );
 
   if (isLoading || loadingDoctors) {
     return (
@@ -236,7 +266,13 @@ export default function AdminDashboard() {
     );
   }
 
-  const DoctorCard = ({ doctor }: { doctor: DoctorApplication }) => (
+  const DoctorCard = ({ doctor, showRejectionDetails = false }: { doctor: DoctorApplication; showRejectionDetails?: boolean }) => {
+    const latestHistoryEntry = doctor.rejection_history && doctor.rejection_history.length > 0
+      ? doctor.rejection_history[doctor.rejection_history.length - 1]
+      : undefined;
+    const latestRejection = doctor.rejection_reason || latestHistoryEntry?.reason;
+
+    return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-6">
         <div className="flex items-start gap-4">
@@ -319,33 +355,40 @@ export default function AdminDashboard() {
                 </Button>
               </div>
             )}
-            {doctor.verification_status === "rejected" && (
+            {(showRejectionDetails || doctor.verification_status === "rejected") && (
               <div className="mt-3 space-y-2">
-                {doctor.rejection_reason && (
+                {latestRejection && (
                   <div className="p-2 bg-destructive/10 rounded text-sm">
-                    <strong>Reason:</strong> {doctor.rejection_reason}
+                    <strong>Latest Reason:</strong> {latestRejection}
                   </div>
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => {
-                    setDoctorToDelete(doctor);
-                    setShowDeleteDialog(true);
-                  }}
-                  disabled={processing}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
+                {doctor.rejection_history && doctor.rejection_history.length > 0 && (
+                  <div className="p-2 bg-destructive/5 rounded text-sm space-y-2">
+                    <strong>Rejection History ({doctor.rejection_history.length}):</strong>
+                    {doctor.rejection_history.map((rejection: any, idx: number) => (
+                      <div key={idx} className="pl-2 border-l-2 border-destructive/30 text-xs py-1">
+                        <p className="text-destructive/80">{rejection.reason}</p>
+                        <p className="text-muted-foreground text-xs mt-1">
+                          {new Date(rejection.rejectedAt || rejection.date).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   return (
     <MainLayout>
@@ -475,7 +518,7 @@ export default function AdminDashboard() {
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
                 {rejectedDoctors.map((doctor) => (
-                  <DoctorCard key={doctor.id} doctor={doctor} />
+                  <DoctorCard key={doctor.id} doctor={doctor} showRejectionDetails />
                 ))}
               </div>
             )}

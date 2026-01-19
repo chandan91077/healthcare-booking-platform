@@ -49,6 +49,15 @@ const doctorSchema = new mongoose.Schema({
         enum: ['pending', 'verified', 'rejected'],
         default: 'pending',
     },
+    rejection_reason: {
+        type: String,
+        default: null,
+    },
+    rejection_history: [{
+        reason: String,
+        date: { type: Date, default: Date.now },
+        rejectedAt: String
+    }],
     profile_image_url: { // Separate from User avatar if needed, or sync them
         type: String,
     }

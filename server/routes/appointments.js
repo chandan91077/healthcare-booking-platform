@@ -259,7 +259,14 @@ router.put('/:id/permissions', protect, async (req, res) => {
 
         if (typeof video_unlocked !== 'undefined') {
             appointment.video_unlocked = !!video_unlocked;
-            if (appointment.video_unlocked) {
+            // Also sync video.enabled with video_unlocked
+            if (!appointment.video) {
+                appointment.video = {};
+            }
+            appointment.video.enabled = !!video_unlocked;
+            
+            if (appointment.video.enabled) {
+                appointment.video.enabledAt = new Date();
                 // set or generate a join link if not provided
                 if (zoom_join_url) {
                     appointment.zoom_join_url = zoom_join_url;
@@ -303,6 +310,7 @@ router.put('/:id/permissions', protect, async (req, res) => {
                 }
             } else {
                 appointment.zoom_join_url = null;
+                appointment.video.enabledAt = null;
             }
         }
 
@@ -482,6 +490,100 @@ router.patch('/:id/refresh-zoom-meeting', protect, async (req, res) => {
     } catch (error) {
         console.error('Refresh meeting error:', error);
         res.status(500).json({ message: 'Failed to refresh Zoom meeting' });
+    }
+});
+
+// Generate video link for appointment (doctor only)
+router.post('/:id/video/generate', protect, async (req, res) => {
+    try {
+        const appointment = await Appointment.findById(req.params.id);
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Check if user is authorized (doctor who owns appointment)
+        if (req.user.role !== 'doctor') {
+            return res.status(403).json({ message: 'Only doctors can generate video links' });
+        }
+
+        const doctor = await Doctor.findOne({ user_id: req.user._id });
+        if (!doctor || doctor._id.toString() !== appointment.doctor_id.toString()) {
+            return res.status(403).json({ message: 'Not authorized to generate link for this appointment' });
+        }
+
+        // Generate a unique video link using appointmentId
+        const videoLink = `https://zoom.us/j/${appointment._id.toString().slice(-8)}`;
+        appointment.zoom_join_url = videoLink;
+
+        await appointment.save();
+
+        res.json({
+            message: 'Video link generated successfully',
+            videoLink: videoLink,
+            appointment: appointment
+        });
+    } catch (error) {
+        console.error('Video generate error:', error);
+        res.status(500).json({ message: 'Failed to generate video link' });
+    }
+});
+
+// Toggle chat status for appointment (doctor only)
+router.patch('/:id/chat/toggle', protect, async (req, res) => {
+    try {
+        const appointment = await Appointment.findById(req.params.id)
+            .populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name email' } })
+            .populate('patient_id', 'full_name email');
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        // Check if user is authorized (doctor who owns appointment)
+        if (req.user.role !== 'doctor') {
+            return res.status(403).json({ message: 'Only doctors can toggle chat' });
+        }
+
+        const doctor = await Doctor.findOne({ user_id: req.user._id });
+        if (!doctor || doctor._id.toString() !== appointment.doctor_id._id.toString()) {
+            return res.status(403).json({ message: 'Not authorized to toggle chat for this appointment' });
+        }
+
+        const Notification = require('../models/Notification');
+
+        const previousState = appointment.chat_unlocked;
+        appointment.chat_unlocked = !appointment.chat_unlocked;
+
+        // Send notifications
+        if (appointment.chat_unlocked && !previousState) {
+            // Chat was just enabled
+            await Notification.create({
+                user_id: appointment.patient_id,
+                type: 'chat_enabled',
+                message: 'Chat has been enabled for your appointment',
+                data: { appointment_id: appointment._id }
+            });
+        } else if (!appointment.chat_unlocked && previousState) {
+            // Chat was just disabled
+            await Notification.create({
+                user_id: appointment.patient_id,
+                type: 'chat_disabled',
+                message: 'Chat has been disabled for your appointment',
+                data: { appointment_id: appointment._id }
+            });
+        }
+
+        await appointment.save();
+
+        res.json({
+            message: `Chat ${appointment.chat_unlocked ? 'enabled' : 'disabled'} successfully`,
+            chat_unlocked: appointment.chat_unlocked,
+            appointment: appointment
+        });
+    } catch (error) {
+        console.error('Chat toggle error:', error);
+        res.status(500).json({ message: 'Failed to toggle chat' });
     }
 });
 

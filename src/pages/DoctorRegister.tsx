@@ -126,24 +126,53 @@ export default function DoctorRegister() {
       }
 
       const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = userData._id || user.id;
 
-      await api.post('/doctors', {
-        user_id: userData._id || user.id, // Handle both old and new auth user object shape
-        specialization: data.specialization,
-        experience_years: data.experienceYears,
-        consultation_fee: data.consultationFee,
-        emergency_fee: data.emergencyFee,
-        bio: data.bio,
-        state: data.state,
-        location: data.location,
-        medical_license_url: licenseUrl,
-        profile_image_url: profileImageUrl,
-        is_verified: false, // Default
-        verification_status: "pending"
-      });
-
-      toast.success("Registration submitted successfully!");
-      navigate("/dashboard"); // Redirect to dashboard or appropriate page
+      // First, check if doctor profile already exists
+      try {
+        const existingDoctor = await api.get(`/doctors/user/${userId}`);
+        
+        // Doctor exists, update it
+        if (existingDoctor.data) {
+          await api.put(`/doctors/${existingDoctor.data._id}`, {
+            specialization: data.specialization,
+            experience_years: data.experienceYears,
+            consultation_fee: data.consultationFee,
+            emergency_fee: data.emergencyFee,
+            bio: data.bio,
+            state: data.state,
+            location: data.location,
+            medical_license_url: licenseUrl,
+            profile_image_url: profileImageUrl,
+            is_verified: false,
+            verification_status: "pending"
+          });
+          toast.success("Application resubmitted successfully!");
+        }
+      } catch (err: any) {
+        // Doctor doesn't exist, create new one
+        if (err.response?.status === 404) {
+          await api.post('/doctors', {
+            user_id: userId,
+            specialization: data.specialization,
+            experience_years: data.experienceYears,
+            consultation_fee: data.consultationFee,
+            emergency_fee: data.emergencyFee,
+            bio: data.bio,
+            state: data.state,
+            location: data.location,
+            medical_license_url: licenseUrl,
+            profile_image_url: profileImageUrl,
+            is_verified: false,
+            verification_status: "pending"
+          });
+          toast.success("Registration submitted successfully!");
+        } else {
+          throw err;
+        }
+      }
+      
+      navigate("/dashboard");
     } catch (error: any) {
       console.error(error);
       toast.error(error.response?.data?.message || "Failed to submit registration");

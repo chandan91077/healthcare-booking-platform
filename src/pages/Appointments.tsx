@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { getDoctorProfile } from "@/lib/auth";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,8 +23,29 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { PrescriptionModal } from "@/components/PrescriptionModal";
+
+interface DoctorData {
+  _id: string;
+  id: string;
+  is_verified: boolean;
+  verification_status: string;
+  rejection_reason: string | null;
+  rejection_history?: Array<{
+    reason: string;
+    date: Date | string;
+    rejectedAt: string;
+  }>;
+  specialization: string;
+  consultation_fee: number;
+  emergency_fee: number;
+  medical_license_url: string | null;
+  profile_image_url: string | null;
+  created_at?: string;
+  createdAt?: string;
+}
 
 interface Appointment {
   _id: string;
@@ -64,6 +86,7 @@ export default function Appointments() {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [doctorData, setDoctorData] = useState<DoctorData | null>(null);
 
   // Notifications for patient (e.g., preempted by emergency)
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -81,6 +104,13 @@ export default function Appointments() {
       if (!user?._id && !user?.id) return;
 
       try {
+        // If doctor, fetch doctor verification data
+        if (role === 'doctor') {
+          const userId = user._id || user.id;
+          const doctorInfo = await getDoctorProfile(userId);
+          setDoctorData(doctorInfo);
+        }
+
         const { data } = await api.get('/appointments');
 
         const mappedAppointments = data.map((appt: any) => ({
@@ -281,21 +311,30 @@ export default function Appointments() {
           </div>
 
           <div className="flex gap-2 flex-wrap items-center">
-            {appointment.payment_status === "pending" && role === 'patient' && (
+            {appointment.payment_status === "pending" && role === 'patient' ? (
               <Button size="sm" asChild>
                 <Link to={`/payment/${appointment.id}`}>Complete Payment</Link>
               </Button>
+            ) : (
+              <Button size="sm" asChild>
+                <Link to={canAccessChat ? `/chat/${appointment._id || appointment.id}` : `/appointment/${appointment.id}`}>
+                  <MessageSquare className="h-4 w-4 mr-1" />
+                  Open Visit
+                </Link>
+              </Button>
             )}
+
             {canAccessChat && (
-              <Button size="sm" variant="outline" asChild>
+              <Button size="sm" variant="ghost" asChild>
                 <Link to={`/chat/${appointment._id || appointment.id}`}>
                   <MessageSquare className="h-4 w-4 mr-1" />
                   Chat
                 </Link>
               </Button>
             )}
+
             {canAccessVideo && appointment.video?.enabled && appointment.video.patientJoinUrl && (
-              <Button size="sm" variant="outline" asChild>
+              <Button size="sm" variant="ghost" asChild>
                 <a
                   href={appointment.video.patientJoinUrl}
                   target="_blank"
@@ -309,80 +348,6 @@ export default function Appointments() {
                   Join Video
                 </a>
               </Button>
-            )}
-
-            {role === 'doctor' && (
-              <div className="flex items-center gap-2">
-                {/* Chat enable/disable */}
-                {!appointment.chat_unlocked ? (
-                  <Button size="sm" variant="secondary" onClick={async () => {
-                    try {
-                      await api.put(`/appointments/${appointment._id || appointment.id}/permissions`, { chat_unlocked: true });
-                      toast.success('Chat enabled for this appointment');
-                      // refetch appointments
-                      const { data } = await api.get('/appointments');
-                      const mappedAppointments = data.map((appt: any) => ({
-                        ...appt,
-                        id: appt._id,
-                        doctor: appt.doctor_id ? {
-                          id: appt.doctor_id._id,
-                          specialization: appt.doctor_id.specialization,
-                          profile: { full_name: "Dr. " + (appt.doctor_id.user_id?.full_name || "Unknown") }
-                        } : null,
-                        patient: appt.patient_id ? { full_name: appt.patient_id.full_name } : null
-                      }));
-                      setAppointments(mappedAppointments);
-                    } catch (err) {
-                      console.error('Error enabling chat', err);
-                      toast.error('Failed to enable chat');
-                    }
-                  }}>Enable Chat</Button>
-                ) : (
-                  <>
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to={`/chat/${appointment._id || appointment.id}`}>
-                        <MessageSquare className="h-4 w-4 mr-1" />
-                        Chat
-                      </Link>
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={async () => {
-                      try {
-                        await api.put(`/appointments/${appointment._id || appointment.id}/permissions`, { chat_unlocked: false });
-                        toast.success('Chat disabled for this appointment');
-                        const { data } = await api.get('/appointments');
-                        const mappedAppointments = data.map((appt: any) => ({
-                          ...appt,
-                          id: appt._id,
-                          doctor: appt.doctor_id ? {
-                            id: appt.doctor_id._id,
-                            specialization: appt.doctor_id.specialization,
-                            profile: { full_name: "Dr. " + (appt.doctor_id.user_id?.full_name || "Unknown") }
-                          } : null,
-                          patient: appt.patient_id ? { full_name: appt.patient_id.full_name } : null
-                        }));
-                        setAppointments(mappedAppointments);
-                      } catch (err) {
-                        console.error('Error disabling chat', err);
-                        toast.error('Failed to disable chat');
-                      }
-                    }}>Disable Chat</Button>
-                  </>
-                )}
-
-                {/* Video / Zoom link */}
-                <DoctorVideoControls appointment={appointment} />
-              </div>
-            )}
-
-            {canPrescribe && (
-              <PrescriptionModal
-                appointmentId={appointment._id}
-                patientId={appointment.patient_id?._id || appointment.patient_id}
-                patientName={appointment.patient?.full_name || "Patient"}
-                doctorId={appointment.doctor_id?._id || appointment.doctor_id}
-                doctorName={appointment.doctor?.profile?.full_name || "Doctor"}
-                doctorSpecialization={appointment.doctor?.specialization || "Physician"}
-              />
             )}
 
             <Button size="sm" variant="ghost" asChild>
@@ -404,6 +369,103 @@ export default function Appointments() {
               <Skeleton key={i} className="h-40" />
             ))}
           </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Show verification pending page if doctor is not verified
+  if (role === 'doctor' && doctorData && !doctorData.is_verified) {
+    return (
+      <MainLayout>
+        <div className="container py-8 max-w-2xl mx-auto">
+          <Card className="text-center">
+            <CardHeader>
+              {doctorData.verification_status === "pending" ? (
+                <>
+                  <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-warning/10 flex items-center justify-center">
+                    <Clock className="h-8 w-8 text-warning" />
+                  </div>
+                  <CardTitle className="text-2xl">Verification Pending</CardTitle>
+                  <CardDescription className="text-base">
+                    Your application is being reviewed by our admin team
+                  </CardDescription>
+                </>
+              ) : (
+                <>
+                  <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
+                    <XCircle className="h-8 w-8 text-destructive" />
+                  </div>
+                  <CardTitle className="text-2xl">Verification Rejected</CardTitle>
+                  <CardDescription className="text-base">
+                    Unfortunately, your application was not approved
+                  </CardDescription>
+                </>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {doctorData.verification_status === "pending" ? (
+                <>
+                  <div className="bg-muted rounded-lg p-4 text-left space-y-3">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Submitted Documents
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={doctorData.medical_license_url ? "default" : "secondary"}>
+                        {doctorData.medical_license_url ? (
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                        ) : (
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                        )}
+                        Medical License
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p><strong>Specialization:</strong> {doctorData.specialization}</p>
+                    <p><strong>Submitted on:</strong> {doctorData.createdAt ? format(new Date(doctorData.createdAt), 'MMMM d, yyyy') : 'N/A'}</p>
+                  </div>
+
+                  <div className="bg-info/10 rounded-lg p-4 text-sm text-info">
+                    Verification typically takes 1-2 business days. You will be notified once your account is verified.
+                  </div>
+                </>
+              ) : (
+                <div className="bg-destructive/10 rounded-lg p-4 text-sm text-destructive space-y-3">
+                  <div>
+                    <p className="font-semibold mb-2">Latest Reason for Rejection:</p>
+                    <p>{doctorData.rejection_reason || "No reason provided"}</p>
+                  </div>
+                  
+                  {doctorData.rejection_history && doctorData.rejection_history.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-destructive/20 space-y-2">
+                      <p className="font-semibold text-xs">Rejection History ({doctorData.rejection_history.length}):</p>
+                      {doctorData.rejection_history.map((rejection: any, idx: number) => (
+                        <div key={idx} className="text-xs bg-destructive/5 rounded p-2 space-y-1">
+                          <p className="text-destructive/90">{rejection.reason}</p>
+                          <p className="text-destructive/70">
+                            {new Date(rejection.rejectedAt || rejection.date).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <Button variant="outline" className="mt-4" onClick={() => navigate("/doctor/register")}>
+                    Resubmit Application
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </MainLayout>
     );

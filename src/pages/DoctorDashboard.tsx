@@ -5,8 +5,6 @@ import { getDoctorProfile, getProfile } from "@/lib/auth";
 import api from "@/lib/api";
 import { uploadToS3 } from "@/lib/s3-upload";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { PrescriptionModal } from "@/components/PrescriptionModal";
-import { PatientHistoryModal } from "@/components/PatientHistoryModal";
 import { DoctorAvailability } from "@/components/DoctorAvailability";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +19,6 @@ import {
   XCircle,
   Calendar,
   MessageSquare,
-  Video,
   Users,
   IndianRupee,
   FileText,
@@ -29,20 +26,27 @@ import {
   Camera,
   Loader2,
   MapPin,
+  History,
 } from "lucide-react";
 
 interface DoctorData {
-  _id: string; // Added to fix lint error
+  _id: string;
   id: string;
   is_verified: boolean;
   verification_status: string;
   rejection_reason: string | null;
+  rejection_history?: Array<{
+    reason: string;
+    date: Date | string;
+    rejectedAt: string;
+  }>;
   specialization: string;
   consultation_fee: number;
   emergency_fee: number;
   medical_license_url: string | null;
   profile_image_url: string | null;
-  created_at: string;
+  created_at?: string;
+  createdAt?: string;
   state?: string;
   location?: string;
 }
@@ -289,7 +293,7 @@ export default function DoctorDashboard() {
 
                   <div className="text-sm text-muted-foreground space-y-2">
                     <p><strong>Specialization:</strong> {doctorData.specialization}</p>
-                    <p><strong>Submitted on:</strong> {new Date(doctorData.created_at).toLocaleDateString()}</p>
+                    <p><strong>Submitted on:</strong> {doctorData.createdAt ? format(new Date(doctorData.createdAt), 'MMMM d, yyyy') : 'N/A'}</p>
                   </div>
 
                   <div className="bg-info/10 rounded-lg p-4 text-sm text-info">
@@ -298,15 +302,36 @@ export default function DoctorDashboard() {
                 </>
               ) : (
                 <>
-                  {doctorData.rejection_reason && (
-                    <div className="bg-destructive/10 rounded-lg p-4 text-left">
-                      <h3 className="font-semibold text-destructive mb-2">Reason for Rejection</h3>
-                      <p className="text-sm">{doctorData.rejection_reason}</p>
+                  <div className="bg-destructive/10 rounded-lg p-4 text-sm text-destructive space-y-3">
+                    <div>
+                      <p className="font-semibold mb-2">Latest Reason for Rejection:</p>
+                      <p>{doctorData.rejection_reason || "No reason provided"}</p>
                     </div>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    If you believe this was an error or would like to reapply with updated documents, please contact our support team.
-                  </p>
+                    
+                    {doctorData.rejection_history && doctorData.rejection_history.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-destructive/20 space-y-2">
+                        <p className="font-semibold text-xs">Rejection History ({doctorData.rejection_history.length}):</p>
+                        {doctorData.rejection_history.map((rejection: any, idx: number) => (
+                          <div key={idx} className="text-xs bg-destructive/5 rounded p-2 space-y-1">
+                            <p className="text-destructive/90">{rejection.reason}</p>
+                            <p className="text-destructive/70">
+                              {new Date(rejection.rejectedAt || rejection.date).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <Button variant="outline" className="mt-4" onClick={() => navigate("/doctor/register")}>
+                      Resubmit Application
+                    </Button>
+                  </div>
                 </>
               )}
             </CardContent>
@@ -457,15 +482,7 @@ export default function DoctorDashboard() {
                         <AvatarFallback>{appt.patient?.full_name?.charAt(0) || "P"}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{appt.patient?.full_name}</p>
-                          {appt.patient?._id && (
-                            <PatientHistoryModal
-                              patientId={appt.patient._id}
-                              patientName={appt.patient.full_name}
-                            />
-                          )}
-                        </div>
+                        <p className="font-medium">{appt.patient?.full_name}</p>
                         <p className="text-sm text-muted-foreground">
                           {appt.appointment_time.slice(0, 5)} • {appt.appointment_type}
                         </p>
@@ -484,212 +501,12 @@ export default function DoctorDashboard() {
                       )}
                       {appt.status === 'confirmed' && (
                         <>
-                          <PrescriptionModal
-                            appointmentId={appt._id}
-                            patientId={appt.patient_id}
-                            patientName={appt.patient?.full_name || "Patient"}
-                            doctorId={doctorData?._id || doctorData?.id || ""}
-                            doctorName={doctorProfile?.full_name || "Doctor"}
-                            doctorSpecialization={doctorData?.specialization || ""}
-                            onSuccess={() => {
-                              toast.success("Prescription sent to patient");
-                            }}
-                          />
-
-                          {/* Chat controls: allow enabling/disabling chat from doctor dashboard */}
-                          {!appt.chat_unlocked ? (
-                            <Button size="sm" variant="secondary" onClick={async () => {
-                              try {
-                                await api.put(`/appointments/${appt._id}/permissions`, { chat_unlocked: true });
-                                toast.success('Chat enabled for this appointment');
-                                // refetch appointments
-                                const { data } = await api.get('/appointments');
-                                const mappedAppointments = data.map((appt: any) => ({
-                                  ...appt,
-                                  id: appt._id,
-                                  patient: appt.patient_id ? {
-                                    _id: appt.patient_id._id,
-                                    full_name: appt.patient_id.full_name,
-                                    email: appt.patient_id.email
-                                  } : null
-                                }));
-                                setAppointments(mappedAppointments);
-                              } catch (err) {
-                                console.error('Error enabling chat', err);
-                                toast.error('Failed to enable chat');
-                              }
-                            }}>Enable Chat</Button>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <Button size="sm" variant="outline" asChild>
-                                <Link to={`/chat/${appt._id || appt.id}`}>
-                                  <MessageSquare className="h-4 w-4 mr-1" />
-                                  Chat
-                                </Link>
-                              </Button>
-                              <Button size="sm" variant="destructive" onClick={async () => {
-                                try {
-                                  await api.put(`/appointments/${appt._id}/permissions`, { chat_unlocked: false });
-                                  toast.success('Chat disabled for this appointment');
-                                  // refetch appointments
-                                  const { data } = await api.get('/appointments');
-                                  const mappedAppointments = data.map((appt: any) => ({
-                                    ...appt,
-                                    id: appt._id,
-                                    patient: appt.patient_id ? {
-                                      _id: appt.patient_id._id,
-                                      full_name: appt.patient_id.full_name,
-                                      email: appt.patient_id.email
-                                    } : null
-                                  }));
-                                  setAppointments(mappedAppointments);
-                                } catch (err) {
-                                  console.error('Error disabling chat', err);
-                                  toast.error('Failed to disable chat');
-                                }
-                              }}>Disable Chat</Button>
-                            </div>
-                          )}
-
-                          {/* Video controls */}
-                          {!appt.video?.enabled ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={async () => {
-                                try {
-                                  await api.patch(`/appointments/${appt._id}/video-toggle`);
-                                  toast.success('Video call enabled for this appointment');
-                                  // Refresh appointments
-                                  const { data } = await api.get('/appointments');
-                                  const mappedAppointments = data.map((appt: any) => ({
-                                    ...appt,
-                                    id: appt._id,
-                                    patient: appt.patient_id ? {
-                                      _id: appt.patient_id._id,
-                                      full_name: appt.patient_id.full_name,
-                                      email: appt.patient_id.email
-                                    } : null
-                                  }));
-                                  setAppointments(mappedAppointments);
-                                } catch (err) {
-                                  console.error('Error enabling video', err);
-                                  toast.error('Failed to enable video call');
-                                }
-                              }}
-                            >
-                              <Video className="h-4 w-4 mr-1" />
-                              Enable Video
-                            </Button>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              {appt.video.doctorInCall ? (
-                                <>
-                                  <Button size="sm" variant="secondary" asChild>
-                                    <a
-                                      href={appt.video.doctorJoinUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        window.open(appt.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
-                                      }}
-                                    >
-                                      <Video className="h-4 w-4 mr-1" />
-                                      Rejoin Video
-                                    </a>
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={async () => {
-                                      try {
-                                        await api.patch(`/appointments/${appt._id}/doctor-leave-call`);
-                                        toast.success('Left video call');
-                                        // Refresh appointments
-                                        const { data } = await api.get('/appointments');
-                                        const mappedAppointments = data.map((appt: any) => ({
-                                          ...appt,
-                                          id: appt._id,
-                                          patient: appt.patient_id ? {
-                                            _id: appt.patient_id._id,
-                                            full_name: appt.patient_id.full_name,
-                                            email: appt.patient_id.email,
-                                          } : null,
-                                          doctor: appt.doctor_id ? {
-                                            _id: appt.doctor_id._id,
-                                            full_name: appt.doctor_id.user_id?.full_name || 'Doctor',
-                                          } : null,
-                                        }));
-                                        setAppointments(mappedAppointments);
-                                      } catch (error) {
-                                        console.error('Failed to leave call:', error);
-                                        toast.error('Failed to leave call');
-                                      }
-                                    }}
-                                  >
-                                    <Video className="h-4 w-4 mr-1" />
-                                    Leave Call
-                                  </Button>
-                                </>
-                              ) : (
-                                <Button size="sm" asChild>
-                                  <a
-                                    href={appt.video.doctorJoinUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={async (e) => {
-                                      e.preventDefault();
-                                      try {
-                                        await api.patch(`/appointments/${appt._id}/doctor-join-call`);
-                                        window.open(appt.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
-                                      } catch (error) {
-                                        console.error('Failed to update call status:', error);
-                                      // Try to refresh the meeting if the URL might be expired
-                                      try {
-                                        const refreshResponse = await api.patch(`/appointments/${appt._id}/refresh-zoom-meeting`);
-                                        window.open(refreshResponse.data.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
-                                      } catch (refreshError) {
-                                        console.error('Failed to refresh meeting:', refreshError);
-                                        window.open(appt.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
-                                      }
-                                      }
-                                    }}
-                                  >
-                                    <Video className="h-4 w-4 mr-1" />
-                                    Start Video
-                                  </a>
-                                </Button>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={async () => {
-                                  try {
-                                    await api.patch(`/appointments/${appt._id}/video-toggle`);
-                                    toast.success('Video call disabled for this appointment');
-                                    // Refresh appointments
-                                    const { data } = await api.get('/appointments');
-                                    const mappedAppointments = data.map((appt: any) => ({
-                                      ...appt,
-                                      id: appt._id,
-                                      patient: appt.patient_id ? {
-                                        _id: appt.patient_id._id,
-                                        full_name: appt.patient_id.full_name,
-                                        email: appt.patient_id.email
-                                      } : null
-                                    }));
-                                    setAppointments(mappedAppointments);
-                                  } catch (err) {
-                                    console.error('Error disabling video', err);
-                                    toast.error('Failed to disable video call');
-                                  }
-                                }}
-                              >
-                                Disable Video
-                              </Button>
-                            </div>
-                          )}
+                          <Button size="sm" variant="outline" asChild>
+                            <Link to={`/chat/${appt._id || appt.id}`}>
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              Chat
+                            </Link>
+                          </Button>
                         </>
                       )}
                     </div>
@@ -726,9 +543,19 @@ export default function DoctorDashboard() {
                         </p>
                       </div>
                     </div>
-                    <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"}>
-                      {appt.appointment_type}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"}>
+                        {appt.appointment_type}
+                      </Badge>
+                      {appt.status === 'confirmed' && (
+                        <Button size="sm" variant="outline" asChild>
+                          <Link to={`/chat/${appt._id || appt.id}`}>
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Chat
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

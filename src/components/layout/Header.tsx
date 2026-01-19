@@ -225,12 +225,14 @@ export function Header() {
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/appointments" className="cursor-pointer">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Appointments
-                  </Link>
-                </DropdownMenuItem>
+                {role !== 'admin' && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/appointments" className="cursor-pointer">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      Appointments
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link to="/settings" className="cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" />

@@ -73,11 +73,11 @@ router.get('/conversations', protect, async (req, res) => {
 
         let appts = [];
         if (role === 'patient') {
-            appts = await Appointment.find({ patient_id: _id }).select('_id doctor_id patient_id video status appointment_date appointment_time').populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } }).populate('patient_id', 'full_name');
+            appts = await Appointment.find({ patient_id: _id }).select('_id doctor_id patient_id video video_unlocked status appointment_date appointment_time').populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } }).populate('patient_id', 'full_name');
         } else if (role === 'doctor') {
             const doctor = await Doctor.findOne({ user_id: _id });
             if (!doctor) return res.json([]);
-            appts = await Appointment.find({ doctor_id: doctor._id }).select('_id doctor_id patient_id video status appointment_date appointment_time').populate('patient_id', 'full_name').populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } });
+            appts = await Appointment.find({ doctor_id: doctor._id }).select('_id doctor_id patient_id video video_unlocked status appointment_date appointment_time').populate('patient_id', 'full_name').populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } });
         } else {
             return res.json([]);
         }
@@ -96,7 +96,7 @@ router.get('/conversations', protect, async (req, res) => {
             if (!conversationGroups.has(pairKey)) {
                 conversationGroups.set(pairKey, {
                     appointments: [],
-                    otherPartyName: role === 'patient' ? (appt.doctor_id?.user_id?.full_name || 'Doctor') : (appt.patient_id?.full_name || 'Patient'),
+                    otherPartyName: role === 'patient' ? ('Dr. ' + (appt.doctor_id?.user_id?.full_name || 'Doctor')) : (appt.patient_id?.full_name || 'Patient'),
                     latestAppointment: appt
                 });
             }
@@ -135,22 +135,34 @@ router.get('/conversations', protect, async (req, res) => {
             if (convs.length > 0) {
                 const c = convs[0];
                 const sender = await User.findById(c.sender_id).select('full_name');
+                
+                // Ensure video state is synchronized
+                let videoState = group.latestAppointment.video ? { ...group.latestAppointment.video.toObject ? group.latestAppointment.video.toObject() : group.latestAppointment.video } : {};
+                if (group.latestAppointment.video_unlocked !== undefined) {
+                    videoState.enabled = group.latestAppointment.video_unlocked;
+                }
+                
                 results.push({
                     appointment_id: group.latestAppointment._id, // Use latest appointment ID for routing
                     lastMessage: { _id: c.lastMessageId, content: c.lastContent, createdAt: c.lastCreatedAt, senderName: sender?.full_name || null },
                     unreadCount: c.unreadCount || 0,
                     otherPartyName: group.otherPartyName,
-                    video: group.latestAppointment.video || null,
+                    video: Object.keys(videoState).length > 0 ? videoState : null,
                     appointmentCount: group.appointments.length // Number of appointments in this conversation
                 });
             } else {
                 // No messages yet, but show the conversation anyway
+                let videoState = group.latestAppointment.video ? { ...group.latestAppointment.video.toObject ? group.latestAppointment.video.toObject() : group.latestAppointment.video } : {};
+                if (group.latestAppointment.video_unlocked !== undefined) {
+                    videoState.enabled = group.latestAppointment.video_unlocked;
+                }
+                
                 results.push({
                     appointment_id: group.latestAppointment._id,
                     lastMessage: null,
                     unreadCount: 0,
                     otherPartyName: group.otherPartyName,
-                    video: group.latestAppointment.video || null,
+                    video: Object.keys(videoState).length > 0 ? videoState : null,
                     appointmentCount: group.appointments.length
                 });
             }

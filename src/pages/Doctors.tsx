@@ -76,6 +76,17 @@ export default function Doctors() {
   const [selectedSpecialization, setSelectedSpecialization] = useState("All Specializations");
   const [sortBy, setSortBy] = useState("experience");
 
+  // Generate random rating and review count for each doctor
+  const generateRating = (doctorId: string) => {
+    const seed = doctorId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const rating = 4.0 + ((seed % 10) / 10); // Generates rating between 4.0 and 4.9
+    const reviews = 50 + (seed % 150); // Generates review count between 50 and 200
+    return {
+      rating: parseFloat(rating.toFixed(1)),
+      reviews
+    };
+  };
+
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -293,8 +304,8 @@ export default function Doctors() {
                         </Badge>
                         <div className="flex items-center gap-1 text-sm text-warning">
                           <Star className="h-4 w-4 fill-current" />
-                          <span>4.8</span>
-                          <span className="text-muted-foreground">(120 reviews)</span>
+                          <span>{generateRating(doctor.id).rating}</span>
+                          <span className="text-muted-foreground">({generateRating(doctor.id).reviews} reviews)</span>
                         </div>
                       </div>
                     </div>
