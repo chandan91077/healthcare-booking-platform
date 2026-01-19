@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; color: #666; font-size: 14px; }
+        .button { display: inline-block; padding: 12px 30px; background: #10b981; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .success-box { background: #d1fae5; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #10b981; text-align: center; }
+        .check-icon { font-size: 48px; color: #10b981; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>✅ Application Approved!</h1>
+        <p>Congratulations, Dr. {{doctorName}}</p>
+    </div>
+
+    <div class="content">
+        <div class="success-box">
+            <div class="check-icon">✓</div>
+            <h2 style="color: #10b981; margin: 0;">Your Profile Has Been Verified!</h2>
+        </div>
+
+        <p>Dear Dr. {{doctorName}},</p>
+        
+        <p>Great news! Your application has been reviewed and <strong>approved</strong> by our admin team. Your profile is now live on MediConnect!</p>
+
+        <p><strong>What you can do now:</strong></p>
+        <ul>
+            <li>✓ Your profile is visible to patients</li>
+            <li>✓ Start accepting appointment bookings</li>
+            <li>✓ Set your availability schedule</li>
+            <li>✓ Manage consultations and prescriptions</li>
+            <li>✓ Access video call features</li>
+        </ul>
+
+        <p><strong>Your Profile Details:</strong></p>
+        <p>
+            <strong>Specialization:</strong> {{specialization}}<br>
+            <strong>Experience:</strong> {{experienceYears}} years<br>
+            <strong>Consultation Fee:</strong> ₹{{consultationFee}}<br>
+            <strong>Emergency Fee:</strong> ₹{{emergencyFee}}<br>
+            <strong>Location:</strong> {{state}}
+        </p>
+
+        <div style="text-align: center;">
+            <a href="{{dashboardUrl}}" class="button">Go to Dashboard</a>
+        </div>
+
+        <p>We're thrilled to have you as part of the MediConnect family. Together, we're making healthcare more accessible!</p>
+
+        <p>If you need any assistance getting started, our support team is here to help.</p>
+
+        <p>Best regards,<br>
+        <strong>The MediConnect Team</strong></p>
+    </div>
+
+    <div class="footer">
+        <p><strong>MediConnect</strong> - Your Health, Our Priority</p>
+        <p>For support, contact us at support@mediconnect.com</p>
+        <p style="font-size: 12px; color: #999; margin-top: 15px;">
+            © 2026 MediConnect. All rights reserved.
+        </p>
+    </div>
+</body>
+</html>
