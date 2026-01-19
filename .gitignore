@@ -4,3 +4,4 @@ server/.env
 dist/
 build/
 .vite/
+DEPLOYMENT.md
