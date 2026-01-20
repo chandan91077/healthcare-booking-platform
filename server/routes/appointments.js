@@ -7,6 +7,19 @@ const path = require('path');
 const { protect } = require('../middleware/authMiddleware');
 const zoomService = require('../services/zoomService');
 
+// Helper function to check if appointment is in the future
+function isAppointmentInFuture(appointmentDate, appointmentTime) {
+    try {
+        const [hours, minutes] = appointmentTime.split(':').map(Number);
+        const appointmentDateTime = new Date(appointmentDate);
+        appointmentDateTime.setHours(hours, minutes, 0, 0);
+        return appointmentDateTime > new Date();
+    } catch (e) {
+        console.warn('Could not parse appointment time:', e.message);
+        return false;
+    }
+}
+
 // Get appointment by ID
 router.get('/:id', protect, async (req, res) => {
     try {
@@ -837,6 +850,57 @@ router.post('/:id/mark-done', protect, async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to complete this appointment' });
         }
 
+        // Check if appointment is in the future
+        const isFuture = isAppointmentInFuture(appointment.appointment_date, appointment.appointment_time);
+        
+        if (isFuture) {
+            // If appointment is in the future, cancel it instead of marking as completed
+            // This allows the slot to be available for rebooking
+            appointment.status = 'cancelled';
+            appointment.chat_unlocked = false;
+            await appointment.save();
+            
+            // Notify patient about cancellation
+            try {
+                const emailService = require('../services/emailService');
+                const appointmentDate = new Date(appointment.appointment_date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                
+                const doctorName = appointment.doctor_id?.user_id?.full_name || 'Doctor';
+                
+                await emailService.sendEmail({
+                    to: appointment.patient_id.email,
+                    subject: 'Appointment Cancelled - MediConnect',
+                    text: `Dear ${appointment.patient_id.full_name},\n\nDr. ${doctorName} has cancelled your appointment scheduled for ${appointmentDate} at ${appointment.appointment_time}.\n\nThis time slot is now available for rebooking. Please book another appointment if needed.\n\nBest regards,\nThe MediConnect Team`,
+                    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #ef4444;">Appointment Cancelled</h2>
+                        <p>Dear ${appointment.patient_id.full_name},</p>
+                        <p>Dr. ${doctorName} has cancelled your appointment.</p>
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3 style="margin-top: 0;">Cancelled Appointment Details</h3>
+                            <p><strong>Doctor:</strong> Dr. ${doctorName}</p>
+                            <p><strong>Date:</strong> ${appointmentDate}</p>
+                            <p><strong>Time:</strong> ${appointment.appointment_time}</p>
+                        </div>
+                        <p style="color: #10b981;">This time slot is now available for rebooking. Please book another appointment if needed.</p>
+                        <p>Best regards,<br/>The MediConnect Team</p>
+                    </div>`
+                });
+            } catch (emailError) {
+                console.error('Failed to send cancellation email:', emailError);
+            }
+            
+            return res.status(200).json({
+                message: 'Appointment cancelled successfully. Time slot is now available for rebooking.',
+                appointment
+            });
+        }
+
+        // If appointment is in the past, mark it as completed
         // Update appointment status to completed
         appointment.status = 'completed';
         appointment.payment_status = 'paid'; // Use 'paid' instead of 'completed'
