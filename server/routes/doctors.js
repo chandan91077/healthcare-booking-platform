@@ -9,6 +9,38 @@ const path = require('path');
 router.post('/', protect, async (req, res) => {
     try {
         const doctor = await Doctor.create(req.body);
+        
+        // Populate user_id to get email and full name
+        await doctor.populate('user_id', 'full_name email');
+        
+        // Send registration confirmation email
+        try {
+            const templateData = {
+                doctorName: doctor.user_id.full_name,
+                email: doctor.user_id.email,
+                specialization: doctor.specialization,
+                experienceYears: doctor.experience_years,
+                state: doctor.state,
+                dashboardUrl: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/doctor/dashboard`
+            };
+            
+            const htmlTemplate = path.join(__dirname, '../email/templates/en/doctor_registration.html');
+            const textTemplate = path.join(__dirname, '../email/templates/en/doctor_registration.txt');
+            
+            const htmlContent = await renderTemplate(htmlTemplate, templateData);
+            const textContent = await renderTemplate(textTemplate, templateData);
+            
+            await emailService.sendEmail({
+                to: doctor.user_id.email,
+                subject: 'Registration Received - MediConnect',
+                text: textContent,
+                html: htmlContent
+            });
+        } catch (emailError) {
+            console.error('Error sending registration email:', emailError);
+            // Don't fail the registration if email fails
+        }
+        
         res.status(201).json(doctor);
     } catch (error) {
         res.status(400).json({ message: error.message });

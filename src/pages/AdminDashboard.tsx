@@ -370,9 +370,6 @@ export default function AdminDashboard() {
         // verified_by: user?.id,
       });
 
-      // Send verification email (placeholder)
-      console.log("Send verification email placeholder");
-
       setDoctors((prev) =>
         prev.map((d) =>
           d.id === doctor.id
@@ -417,9 +414,6 @@ export default function AdminDashboard() {
           newRejection
         ]
       });
-
-      // Send rejection email (placeholder)
-      console.log("Send rejection email placeholder");
 
       // Update local state with response data from backend
       const updatedDoctor = updatedResponse.data;
