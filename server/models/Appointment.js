@@ -28,6 +28,14 @@ const appointmentSchema = new mongoose.Schema({
         type: Number,
         required: true,
     },
+    base_amount: {
+        type: Number,
+        default: 0,
+    },
+    platform_fee: {
+        type: Number,
+        default: 0,
+    },
     notes: {
         type: String,
         default: '',

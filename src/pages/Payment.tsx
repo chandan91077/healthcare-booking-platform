@@ -26,6 +26,8 @@ interface AppointmentDetails {
   appointment_time: string;
   appointment_type: string;
   amount: number;
+  base_amount?: number;
+  platform_fee?: number;
   status: string;
   payment_status: string;
   doctor: {
@@ -136,13 +138,13 @@ export default function Payment() {
     setProcessing(true);
 
     try {
-      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+      // Create Cashfree order
+      const { data: orderData } = await api.post('/payments/create-order', {
+        appointment_id: appointment.id,
+        amount: appointment.amount
+      });
 
-      if (!razorpayKey) {
-        throw new Error("Razorpay Key ID missing in environment variables");
-      }
-
-      // Load Razorpay script dynamically
+      // Load Cashfree SDK
       const loadScript = (src: string) => {
         return new Promise((resolve) => {
           const script = document.createElement("script");
@@ -153,30 +155,38 @@ export default function Payment() {
         });
       };
 
-      const res = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
+      const res = await loadScript("https://sdk.cashfree.com/js/v3/cashfree.js");
 
       if (!res) {
-        toast.error("Razorpay SDK failed to load. Are you online?");
+        toast.error("Cashfree SDK failed to load. Are you online?");
         setProcessing(false);
         return;
       }
 
-      const options = {
-        key: razorpayKey,
-        amount: appointment.amount * 100, // amount in the smallest currency unit (paise)
-        currency: "INR",
-        name: "HealthLink Connect",
-        description: `Appointment with Dr. ${appointment.doctor?.profile?.full_name}`,
-        image: "/logo.png",
-        handler: async function (response: any) {
+      // Initialize Cashfree
+      const cashfree = new (window as any).Cashfree(orderData.payment_session_id);
+
+      // Configure checkout options
+      const checkoutOptions = {
+        paymentSessionId: orderData.payment_session_id,
+        redirectTarget: "_self"
+      };
+
+      cashfree.checkout(checkoutOptions).then(async (result: any) => {
+        if (result.error) {
+          toast.error(result.error.message || "Payment failed");
+          setProcessing(false);
+          return;
+        }
+
+        if (result.paymentDetails) {
           try {
             // Verify payment on backend
             await api.post('/payments', {
               appointment_id: appointment.id,
               amount: appointment.amount,
-              razorpay_order_id: response.razorpay_order_id || `sim_${Date.now()}`,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
+              cashfree_order_id: orderData.order_id,
+              payment_method: 'cashfree'
             });
 
             toast.success("Payment successful! Your appointment is confirmed.");
@@ -184,26 +194,16 @@ export default function Payment() {
           } catch (error: any) {
             toast.error(error.response?.data?.message || "Payment verification failed");
           }
-        },
-        prefill: {
-          name: user?.full_name || "",
-          email: user?.email || "",
-          contact: user?.phone || ""
-        },
-        theme: {
-          color: "#0D9488",
-        },
-      };
-
-      const rzp1 = new (window as any).Razorpay(options);
-      rzp1.on('payment.failed', function (response: any) {
-        toast.error(response.error.description || "Payment failed");
+        }
+      }).catch((error: any) => {
+        console.error("Payment error:", error);
+        toast.error("Payment failed. Please try again.");
+        setProcessing(false);
       });
-      rzp1.open();
+
     } catch (error: any) {
       console.error("Payment error:", error);
-      toast.error(error.message || "Something went wrong with the payment");
-    } finally {
+      toast.error(error.response?.data?.message || "Failed to initiate payment");
       setProcessing(false);
     }
   };
@@ -304,30 +304,21 @@ export default function Payment() {
             <div className="border rounded-lg p-4 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Consultation Fee</span>
-                <span>₹{appointment.amount}</span>
+                <span>₹{appointment.base_amount ?? appointment.amount}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Platform Fee</span>
-                <span>₹0</span>
+                <span>₹{appointment.platform_fee ?? 0}</span>
               </div>
               <div className="border-t pt-3 flex justify-between font-heading">
-                <span className="font-semibold">Total</span>
-                <span className="text-xl font-bold flex items-center">
-                  <IndianRupee className="h-5 w-5" />
-                  {appointment.amount}
+                <span className="text-lg font-semibold flex items-center gap-1">
+                  <IndianRupee className="h-4 w-4" /> {appointment.amount}
                 </span>
               </div>
             </div>
 
-            {/* Security Info */}
-            <div className="flex items-center gap-3 p-4 bg-success/10 rounded-lg text-sm">
-              <Shield className="h-5 w-5 text-success" />
-              <p>Your payment is secured with 256-bit SSL encryption</p>
-            </div>
-
-            {/* Pay Button */}
             <Button
-              className="w-full gradient-primary border-0"
+              className="w-full gradient-primary border-0 mt-4"
               size="lg"
               onClick={handlePayment}
               disabled={processing}

@@ -128,8 +128,8 @@ export function Header() {
                     </Button>
                   </div>
 
-                  {/* Video Call Section for Patients */}
-                  {role === 'patient' && videoAppointments.length > 0 && (
+                  {/* Video Call Section for Patients and Doctors */}
+                  {videoAppointments.length > 0 && (
                     <div className="mb-3 p-2 bg-blue-50 rounded border">
                       <p className="text-sm font-medium text-blue-900 mb-2 flex items-center gap-1">
                         <Video className="h-4 w-4" />
@@ -142,11 +142,18 @@ export function Header() {
                             size="sm"
                             className="w-full justify-start text-xs"
                             onClick={() => {
-                              window.open(appt.video.patientJoinUrl, '_blank', 'noopener,noreferrer');
+                              const joinUrl = role === 'doctor' 
+                                ? (appt.video?.doctorJoinUrl || appt.video?.patientJoinUrl)
+                                : (appt.video?.patientJoinUrl || appt.video?.doctorJoinUrl);
+                              if (joinUrl) {
+                                window.open(joinUrl, '_blank', 'noopener,noreferrer');
+                              }
                             }}
                           >
                             <Video className="h-3 w-3 mr-1" />
-                            Join call with {appt.doctor?.profile?.full_name || 'Doctor'}
+                            {role === 'doctor' 
+                              ? `Join call with ${appt.patient?.full_name || 'Patient'}`
+                              : `Join call with ${appt.doctor?.profile?.full_name || 'Doctor'}`}
                           </Button>
                         ))}
                         {videoAppointments.length > 2 && (

@@ -45,17 +45,38 @@ class ZoomService {
         try {
             const token = await this.getAccessToken();
 
+            // For scheduled meetings, Zoom works best with a future start_time
+            // Try to use appointment_date/time, but ensure it's valid
+            let startTime = new Date();
+            startTime.setMinutes(startTime.getMinutes() + 5); // At least 5 minutes in future
+            
+            if (appointmentData.appointment_date && appointmentData.appointment_time) {
+                try {
+                    const [hours, minutes] = appointmentData.appointment_time.split(':').map(Number);
+                    const dateObj = new Date(appointmentData.appointment_date);
+                    dateObj.setHours(hours, minutes, 0, 0);
+                    
+                    // Use appointment time if it's in the future, otherwise use 5 minutes from now
+                    if (dateObj > new Date()) {
+                        startTime = dateObj;
+                    }
+                } catch (e) {
+                    console.warn('Could not parse appointment time, using 5 minutes from now');
+                }
+            }
+
             const meetingData = {
                 topic: appointmentData.doctorName ? `Appointment with Dr. ${appointmentData.doctorName}` : `Appointment with MediConnect`,
-                type: 1, // Instant meeting (starts immediately)
+                type: 2, // Scheduled meeting - allows both users to join independently
+                start_time: startTime.toISOString(),
                 duration: 60, // 60 minutes
                 timezone: 'UTC',
                 agenda: `Medical consultation appointment`,
                 settings: {
                     host_video: true,
                     participant_video: true,
-                    join_before_host: true, // Allow joining before host
-                    waiting_room: false, // No waiting room
+                    join_before_host: true, // Allow joining before host - CRITICAL for users to join independently
+                    waiting_room: false, // No waiting room - users join directly
                     use_pmi: false,
                     approval_type: 0, // Auto approve all participants
                     audio: 'both',
@@ -66,6 +87,7 @@ class ZoomService {
                     require_password_for_pmi_meetings: false,
                     allow_multiple_devices: true, // Allow multiple devices
                     meeting_authentication: false, // No authentication required
+                    
                 },
             };
 
@@ -77,6 +99,12 @@ class ZoomService {
             });
 
             const meeting = response.data;
+            console.log('✅ Zoom meeting created successfully:', {
+                meetingId: meeting.id,
+                joinUrl: meeting.join_url,
+                startTime: meeting.start_time,
+                topic: meeting.topic,
+            });
 
             // Use the actual join_url from Zoom API which allows joining without host
             // Both doctor and patient use the same link and can join independently
@@ -91,7 +119,12 @@ class ZoomService {
                 enabledAt: null,
             };
         } catch (error) {
-            console.error('Error creating Zoom meeting:', error.response?.data || error.message);
+            console.error('❌ Error creating Zoom meeting:', {
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data,
+                message: error.message
+            });
             throw new Error('Failed to create Zoom meeting');
         }
     }

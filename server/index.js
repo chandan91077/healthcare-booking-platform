@@ -28,6 +28,7 @@ app.use('/api/prescriptions', require('./routes/prescriptions'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/availability', require('./routes/availability'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/settings', require('./routes/settings'));
 
 const PORT = process.env.PORT || 5000;
 
