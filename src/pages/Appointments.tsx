@@ -324,15 +324,16 @@ export default function Appointments() {
               </Button>
             )}
 
-            {canAccessVideo && appointment.video?.enabled && appointment.video.patientJoinUrl && (
+            {canAccessVideo && appointment.video?.enabled && (appointment.video.patientJoinUrl || appointment.video.doctorJoinUrl) && (
               <Button size="sm" variant="ghost" className="w-full sm:w-auto" asChild>
                 <a
-                  href={appointment.video.patientJoinUrl}
+                  href={role === 'doctor' ? appointment.video.doctorJoinUrl : appointment.video.patientJoinUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => {
                     e.preventDefault();
-                    window.open(appointment.video.patientJoinUrl, '_blank', 'noopener,noreferrer');
+                    const joinUrl = role === 'doctor' ? appointment.video.doctorJoinUrl : appointment.video.patientJoinUrl;
+                    window.open(joinUrl, '_blank', 'noopener,noreferrer');
                   }}
                 >
                   <Video className="h-4 w-4 mr-1" />

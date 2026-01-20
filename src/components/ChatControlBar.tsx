@@ -25,6 +25,14 @@ interface ChatControlBarProps {
     chat_unlocked: boolean;
     video_unlocked: boolean;
     zoom_join_url?: string;
+    video?: {
+      enabled: boolean;
+      enabledAt: string | null;
+      doctorJoinUrl: string | null;
+      patientJoinUrl: string | null;
+      provider?: string;
+      meetingId?: string;
+    };
   };
   otherParty: {
     id: string;
@@ -85,7 +93,19 @@ export default function ChatControlBar({
   };
 
   const handleJoinVideo = () => {
-    const link = appointment.zoom_join_url || zoomLink;
+    // Use appropriate join URL based on role from the video object
+    let link = null;
+    if (appointment.video_unlocked && userRole === 'doctor' && appointment.video?.doctorJoinUrl) {
+      link = appointment.video.doctorJoinUrl;
+    } else if (appointment.video_unlocked && userRole === 'patient' && appointment.video?.patientJoinUrl) {
+      link = appointment.video.patientJoinUrl;
+    }
+    
+    // Fallback to zoom_join_url or zoomLink if video URLs not available
+    if (!link) {
+      link = appointment.zoom_join_url || zoomLink;
+    }
+    
     if (!link) {
       toast.error('No video link available');
       return;
@@ -127,7 +147,7 @@ export default function ChatControlBar({
         </div>
 
         {/* Patient view: Show join video button if enabled */}
-        {userRole === 'patient' && appointment.video_unlocked && appointment.zoom_join_url && (
+        {userRole === 'patient' && appointment.video_unlocked && (appointment.zoom_join_url || appointment.video?.patientJoinUrl) && (
           <Button
             size="sm"
             variant="secondary"

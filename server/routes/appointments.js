@@ -136,13 +136,39 @@ router.post('/', protect, async (req, res) => {
             }
         }
 
+        // Calculate fees and total amount
+        const baseAmount = appointment_type === 'emergency'
+            ? (doctor.emergency_fee || doctor.consultation_fee)
+            : doctor.consultation_fee;
+
+        let platformFee = 0;
+        try {
+            const PlatformSettings = require('../models/PlatformSettings');
+            const cfg = await PlatformSettings.findOne({ key: 'platform_fees' });
+            if (cfg && cfg.enabled) {
+                const pct = Number(cfg.percentage || 0);
+                const fixed = Number(cfg.fixed || 0);
+                platformFee = Math.max(0, Math.round((baseAmount * pct) / 100 + fixed));
+                if (cfg.minFee) platformFee = Math.max(platformFee, Number(cfg.minFee));
+                if (cfg.maxFee) platformFee = Math.min(platformFee, Number(cfg.maxFee));
+            }
+        } catch (e) {
+            console.warn('Platform fee read failed:', e.message);
+        }
+
+        const totalAmount = (typeof amount !== 'undefined' && amount !== null)
+            ? Number(amount)
+            : (baseAmount + platformFee);
+
         const appointment = await Appointment.create({
             doctor_id,
             patient_id,
             appointment_date,
             appointment_time,
             appointment_type,
-            amount,
+            amount: totalAmount,
+            base_amount: baseAmount,
+            platform_fee: platformFee,
             status: appointment_type === 'emergency' ? 'confirmed' : 'pending',
             payment_status: appointment_type === 'emergency' ? 'paid' : 'pending',
             chat_unlocked: appointment_type === 'emergency',
@@ -166,7 +192,7 @@ router.post('/', protect, async (req, res) => {
             await emailService.sendEmail({
                 to: patient.email,
                 subject: `Appointment ${appointment_type === 'emergency' ? 'Confirmed' : 'Booking Received'} - MediConnect`,
-                text: `Dear ${patient.full_name},\n\nYour ${appointment_type} appointment has been ${appointment_type === 'emergency' ? 'confirmed' : 'booked'}.\n\nAppointment Details:\n- Doctor: ${doctorWithUser.user_id?.full_name || 'Doctor'}\n- Date: ${appointmentDate}\n- Time: ${appointment_time}\n- Type: ${appointment_type}\n- Amount: ₹${amount}\n\n${appointment_type === 'emergency' ? 'Your emergency appointment is confirmed and payment has been processed.' : 'Please complete the payment to confirm your appointment.'}\n\nThank you for using MediConnect.\n\nBest regards,\nThe MediConnect Team`,
+                text: `Dear ${patient.full_name},\n\nYour ${appointment_type} appointment has been ${appointment_type === 'emergency' ? 'confirmed' : 'booked'}.\n\nAppointment Details:\n- Doctor: ${doctorWithUser.user_id?.full_name || 'Doctor'}\n- Date: ${appointmentDate}\n- Time: ${appointment_time}\n- Type: ${appointment_type}\n- Amount: ₹${totalAmount} (Fee ₹${platformFee} • Base ₹${baseAmount})\n\n${appointment_type === 'emergency' ? 'Your emergency appointment is confirmed and payment has been processed.' : 'Please complete the payment to confirm your appointment.'}\n\nThank you for using MediConnect.\n\nBest regards,\nThe MediConnect Team`,
                 html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <h2 style="color: #10b981;">Appointment ${appointment_type === 'emergency' ? 'Confirmed' : 'Booking Received'}</h2>
                     <p>Dear ${patient.full_name},</p>
@@ -177,7 +203,7 @@ router.post('/', protect, async (req, res) => {
                         <p><strong>Date:</strong> ${appointmentDate}</p>
                         <p><strong>Time:</strong> ${appointment_time}</p>
                         <p><strong>Type:</strong> ${appointment_type}</p>
-                        <p><strong>Amount:</strong> ₹${amount}</p>
+                        <p><strong>Amount:</strong> ₹${totalAmount} <span style="color:#6b7280">(Fee ₹${platformFee} • Base ₹${baseAmount})</span></p>
                     </div>
                     ${appointment_type === 'emergency' ? '<p style="color: #10b981; font-weight: bold;">Your emergency appointment is confirmed and payment has been processed.</p>' : '<p style="color: #f59e0b;">Please complete the payment to confirm your appointment.</p>'}
                     <p>Best regards,<br/>The MediConnect Team</p>
@@ -189,7 +215,7 @@ router.post('/', protect, async (req, res) => {
                 await emailService.sendEmail({
                     to: doctorWithUser.user_id.email,
                     subject: `New ${appointment_type === 'emergency' ? 'Emergency ' : ''}Appointment Booking - MediConnect`,
-                    text: `Dear Dr. ${doctorWithUser.user_id?.full_name},\n\nYou have a new ${appointment_type} appointment ${appointment_type === 'emergency' ? 'confirmed' : 'booking'}.\n\nAppointment Details:\n- Patient: ${patient.full_name}\n- Date: ${appointmentDate}\n- Time: ${appointment_time}\n- Type: ${appointment_type}\n- Amount: ₹${amount}\n\n${appointment_type === 'emergency' ? 'This is an emergency appointment and is already confirmed.' : 'The appointment is pending payment confirmation.'}\n\nBest regards,\nThe MediConnect Team`,
+                    text: `Dear Dr. ${doctorWithUser.user_id?.full_name},\n\nYou have a new ${appointment_type} appointment ${appointment_type === 'emergency' ? 'confirmed' : 'booking'}.\n\nAppointment Details:\n- Patient: ${patient.full_name}\n- Date: ${appointmentDate}\n- Time: ${appointment_time}\n- Type: ${appointment_type}\n- Amount: ₹${totalAmount} (Fee ₹${platformFee} • Base ₹${baseAmount})\n\n${appointment_type === 'emergency' ? 'This is an emergency appointment and is already confirmed.' : 'The appointment is pending payment confirmation.'}\n\nBest regards,\nThe MediConnect Team`,
                     html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                         <h2 style="color: #10b981;">New ${appointment_type === 'emergency' ? 'Emergency ' : ''}Appointment Booking</h2>
                         <p>Dear Dr. ${doctorWithUser.user_id?.full_name},</p>
@@ -200,7 +226,7 @@ router.post('/', protect, async (req, res) => {
                             <p><strong>Date:</strong> ${appointmentDate}</p>
                             <p><strong>Time:</strong> ${appointment_time}</p>
                             <p><strong>Type:</strong> ${appointment_type}</p>
-                            <p><strong>Amount:</strong> ₹${amount}</p>
+                            <p><strong>Amount:</strong> ₹${totalAmount} <span style=\"color:#6b7280\">(Fee ₹${platformFee} • Base ₹${baseAmount})</span></p>
                         </div>
                         ${appointment_type === 'emergency' ? '<p style="color: #ef4444; font-weight: bold;">This is an emergency appointment and is already confirmed.</p>' : '<p>The appointment is pending payment confirmation.</p>'}
                         <p>Best regards,<br/>The MediConnect Team</p>
@@ -434,13 +460,33 @@ router.put('/:id/permissions', protect, async (req, res) => {
             
             if (appointment.video.enabled) {
                 appointment.video.enabledAt = new Date();
-                // set or generate a join link if not provided
+                
+                // Determine the join link to use
+                let joinLink = null;
+                
+                // Priority 1: Use provided zoom_join_url
                 if (zoom_join_url) {
+                    joinLink = zoom_join_url;
                     appointment.zoom_join_url = zoom_join_url;
-                } else if (!appointment.zoom_join_url) {
-                    // generate a simple placeholder join link
-                    appointment.zoom_join_url = `https://zoom.${appointment.meeting_provider === 'meet' ? 'google.com' : 'us'}/j/${appointment._id.toString().slice(-8)}`;
                 }
+                // Priority 2: Use existing video URLs if they were created
+                else if (appointment.video.patientJoinUrl && appointment.video.doctorJoinUrl) {
+                    joinLink = appointment.video.patientJoinUrl; // Both URLs are the same
+                    appointment.zoom_join_url = joinLink;
+                }
+                // Priority 3: Use existing zoom_join_url from appointment
+                else if (appointment.zoom_join_url) {
+                    joinLink = appointment.zoom_join_url;
+                }
+                // Priority 4: Generate a placeholder link (should rarely happen if Zoom meeting was created)
+                else {
+                    joinLink = `https://zoom.${appointment.meeting_provider === 'meet' ? 'google.com' : 'us'}/j/${appointment._id.toString().slice(-8)}`;
+                    appointment.zoom_join_url = joinLink;
+                }
+                
+                // Set both doctor and patient join URLs to the same link (they can both join)
+                appointment.video.doctorJoinUrl = joinLink;
+                appointment.video.patientJoinUrl = joinLink;
 
                 if (auto_send) {
                     // Render localized templates and create notifications for both users
@@ -478,6 +524,8 @@ router.put('/:id/permissions', protect, async (req, res) => {
             } else {
                 appointment.zoom_join_url = null;
                 appointment.video.enabledAt = null;
+                appointment.video.doctorJoinUrl = null;
+                appointment.video.patientJoinUrl = null;
             }
         }
 
@@ -652,10 +700,7 @@ router.patch('/:id/refresh-zoom-meeting', protect, async (req, res) => {
         };
         await appointment.save();
 
-        res.json({
-            message: 'Zoom meeting refreshed successfully',
-            video: appointment.video
-        });
+        res.json(appointment);
     } catch (error) {
         console.error('Refresh meeting error:', error);
         res.status(500).json({ message: 'Failed to refresh Zoom meeting' });
@@ -779,6 +824,11 @@ router.post('/:id/mark-done', protect, async (req, res) => {
             return res.status(403).json({ message: 'Doctor profile not found' });
         }
 
+        // Populate doctor's user details if not already populated
+        if (!doctor.user_id || !doctor.user_id.full_name) {
+            await doctor.populate('user_id', 'full_name email');
+        }
+
         // Ensure doctor_id is properly extracted
         const apptDoctorId = appointment.doctor_id._id || appointment.doctor_id;
         const userDoctorId = doctor._id;
@@ -801,6 +851,10 @@ router.post('/:id/mark-done', protect, async (req, res) => {
             prescription = await Prescription.findOne({ 
                 appointment_id: appointmentId 
             }).sort({ createdAt: -1 }).limit(1);
+            // Convert to plain object to ensure proper serialization
+            if (prescription) {
+                prescription = prescription.toObject();
+            }
         } catch (prescErr) {
             console.log('Note: Could not fetch prescription:', prescErr.message);
         }
@@ -812,7 +866,8 @@ router.post('/:id/mark-done', protect, async (req, res) => {
         const patientLocale = (appointment.patient_id && appointment.patient_id.locale) || 'en';
         const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/dashboard`;
         
-        const doctorName = doctor.user_id?.full_name || 'Doctor';
+        // Get doctor name from appointment's populated doctor_id (more reliable)
+        const doctorName = appointment.doctor_id?.user_id?.full_name || doctor.user_id?.full_name || 'Doctor';
         const patientName = appointment.patient_id?.full_name || 'Patient';
         const patientEmail = appointment.patient_id?.email;
 
@@ -829,7 +884,12 @@ router.post('/:id/mark-done', protect, async (req, res) => {
             dashboardUrl: dashboardUrl,
             hasPrescription: !!prescription,
             diagnosis: prescription?.diagnosis || '',
-            medications: prescription?.medications || [],
+            medications: (prescription?.medications || []).map(med => ({
+                name: med.name || '',
+                dosage: med.dosage || '',
+                frequency: med.frequency || '',
+                duration: med.duration || ''
+            })),
             instructions: prescription?.instructions || '',
             doctorNotes: prescription?.doctor_notes || '',
             prescriptionPdfUrl: prescription?.pdf_url || ''
@@ -840,8 +900,10 @@ router.post('/:id/mark-done', protect, async (req, res) => {
         // Render email templates
         let emailText = '', emailHtml = '';
         try {
+            console.log('Template data:', JSON.stringify(templateData, null, 2));
             emailText = renderTemplate(tplBasePath + '.txt', templateData);
             emailHtml = renderTemplate(tplBasePath + '.html', templateData);
+            console.log('Email rendered successfully');
         } catch (err) {
             console.error('Template rendering error:', err.message);
             // Fallback to simple text email

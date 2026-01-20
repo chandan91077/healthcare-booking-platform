@@ -141,6 +141,14 @@
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', system-ui, sans-serif;
     @apply font-semibold tracking-tight;

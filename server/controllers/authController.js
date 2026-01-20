@@ -26,27 +26,51 @@ const registerUser = async (req, res) => {
         });
 
         if (user) {
-            // Send welcome email
+            // Send role-specific welcome email
             try {
-                await sendEmail({
-                    to: user.email,
-                    subject: 'Welcome to MediConnect - Your Healthcare Platform',
-                    text: `Dear ${user.full_name},\n\nWelcome to MediConnect! Your account has been successfully created.\n\nYou can now:\n- Search and book appointments with verified doctors\n- Chat with your healthcare providers\n- Access your medical prescriptions\n- Manage your appointments\n\nThank you for choosing MediConnect for your healthcare needs.\n\nBest regards,\nThe MediConnect Team`,
-                    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #10b981;">Welcome to MediConnect!</h2>
-                        <p>Dear ${user.full_name},</p>
-                        <p>Your account has been successfully created. We're excited to have you join our healthcare platform.</p>
-                        <h3>What you can do now:</h3>
-                        <ul>
-                            <li>Search and book appointments with verified doctors</li>
-                            <li>Chat with your healthcare providers</li>
-                            <li>Access your medical prescriptions</li>
-                            <li>Manage your appointments</li>
-                        </ul>
-                        <p>Thank you for choosing MediConnect for your healthcare needs.</p>
-                        <p>Best regards,<br/>The MediConnect Team</p>
-                    </div>`
-                });
+                if (user.role === 'doctor') {
+                    // For doctors, send a basic welcome (doctor profile will be created separately)
+                    await sendEmail({
+                        to: user.email,
+                        subject: 'Welcome to MediConnect - Doctor Registration',
+                        text: `Dear ${user.full_name},\n\nWelcome to MediConnect! Your doctor account has been successfully created.\n\nNext Steps:\n- Complete your doctor profile with specialization, experience, and credentials\n- Upload required verification documents\n- Wait for admin approval (typically 1-2 business days)\n- Once approved, you can start accepting appointments\n\nYou can complete your profile by logging into your dashboard.\n\nBest regards,\nThe MediConnect Team`,
+                        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #667eea;">🏥 Welcome to MediConnect!</h2>
+                            <p>Dear ${user.full_name},</p>
+                            <p>Your <strong>doctor account</strong> has been successfully created. We're excited to have you join our healthcare platform.</p>
+                            <h3>Next Steps:</h3>
+                            <ul>
+                                <li>Complete your doctor profile with specialization, experience, and credentials</li>
+                                <li>Upload required verification documents</li>
+                                <li>Wait for admin approval (typically 1-2 business days)</li>
+                                <li>Once approved, you can start accepting appointments</li>
+                            </ul>
+                            <p>You can complete your profile by logging into your dashboard.</p>
+                            <p>Best regards,<br/><strong>The MediConnect Team</strong></p>
+                        </div>`
+                    });
+                } else {
+                    // For patients
+                    await sendEmail({
+                        to: user.email,
+                        subject: 'Welcome to MediConnect - Your Healthcare Platform',
+                        text: `Dear ${user.full_name},\n\nWelcome to MediConnect! Your account has been successfully created.\n\nYou can now:\n- Search and book appointments with verified doctors\n- Chat with your healthcare providers\n- Access your medical prescriptions\n- Manage your appointments\n\nThank you for choosing MediConnect for your healthcare needs.\n\nBest regards,\nThe MediConnect Team`,
+                        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #10b981;">Welcome to MediConnect!</h2>
+                            <p>Dear ${user.full_name},</p>
+                            <p>Your account has been successfully created. We're excited to have you join our healthcare platform.</p>
+                            <h3>What you can do now:</h3>
+                            <ul>
+                                <li>Search and book appointments with verified doctors</li>
+                                <li>Chat with your healthcare providers</li>
+                                <li>Access your medical prescriptions</li>
+                                <li>Manage your appointments</li>
+                            </ul>
+                            <p>Thank you for choosing MediConnect for your healthcare needs.</p>
+                            <p>Best regards,<br/>The MediConnect Team</p>
+                        </div>`
+                    });
+                }
             } catch (emailError) {
                 console.error('Failed to send welcome email:', emailError);
                 // Don't fail registration if email fails

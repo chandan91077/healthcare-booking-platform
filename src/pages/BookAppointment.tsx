@@ -231,15 +231,12 @@ export default function BookAppointment() {
         toast.warn("Emergency booking: this will preempt an existing appointment at this time.");
       }
 
-      const amount = appointmentType === "emergency" ? doctor.emergency_fee : doctor.consultation_fee;
-
       const { data: appointment } = await api.post('/appointments', {
         patient_id: (currentUser && (currentUser._id || currentUser.id)) || (user && (user._id || user.id)),
         doctor_id: doctor.id,
         appointment_date: format(selectedDate, "yyyy-MM-dd"),
         appointment_time: selectedTime,
         appointment_type: appointmentType,
-        amount: amount,
       });
 
       // Send email notification (fire and forget)

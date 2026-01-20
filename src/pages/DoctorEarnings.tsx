@@ -32,6 +32,8 @@ interface Appointment {
   appointment_time: string;
   status: string;
   amount: number;
+  base_amount?: number;
+  platform_fee?: number;
   payment_status: string;
   appointment_type: string;
   patient_id: {
@@ -42,11 +44,23 @@ interface Appointment {
   createdAt: string;
 }
 
+interface Settlement {
+  _id: string;
+  doctor_id: string;
+  amount: number;
+  period_start: string;
+  period_end: string;
+  payment_method: string;
+  transaction_id: string;
+  settled_date: string;
+}
+
 export default function DoctorEarnings() {
   const { user, role, isLoading, isAuthenticated } = useAuthContext();
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>("current");
 
@@ -99,6 +113,15 @@ export default function DoctorEarnings() {
       }));
 
       setAppointments(mappedAppointments);
+
+      // Fetch settlements for this doctor
+      try {
+        const { data: settlementsData } = await api.get(`/payments/settlements`);
+        setSettlements(settlementsData || []);
+      } catch (error) {
+        console.log("No settlements found");
+        setSettlements([]);
+      }
     } catch (error) {
       console.error("Error fetching earnings:", error);
       toast.error("Failed to load earnings data");
@@ -132,9 +155,11 @@ export default function DoctorEarnings() {
     setFilteredAppointments(filtered);
   };
 
-  const totalEarnings = filteredAppointments.reduce((sum, appt) => sum + (appt.amount || 0), 0);
+  const totalEarnings = filteredAppointments.reduce((sum, appt) => sum + (appt.base_amount || appt.amount || 0), 0);
+  const totalSettled = settlements.reduce((sum, settlement) => sum + (settlement.amount || 0), 0);
+  const remainingEarnings = totalEarnings - totalSettled;
   const totalAppointments = filteredAppointments.length;
-  const averageEarning = totalAppointments > 0 ? totalEarnings / totalAppointments : 0;
+  const averageEarning = totalAppointments > 0 ? remainingEarnings / totalAppointments : 0;
 
   const handleExport = () => {
     // Create CSV content
@@ -143,7 +168,7 @@ export default function DoctorEarnings() {
       format(new Date(appt.appointment_date), "dd/MM/yyyy"),
       appt.patient_id?.full_name || "N/A",
       appt.appointment_type,
-      `₹${appt.amount}`,
+      `₹${appt.base_amount || appt.amount}`,
       appt.payment_status
     ]);
 
@@ -231,8 +256,13 @@ export default function DoctorEarnings() {
                   <IndianRupee className="h-5 sm:h-6 w-5 sm:w-6 text-success" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-lg sm:text-2xl font-bold truncate">₹{totalEarnings.toLocaleString()}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Total Earnings</p>
+                  <p className="text-lg sm:text-2xl font-bold truncate">₹{remainingEarnings.toLocaleString()}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Remaining Earnings</p>
+                  {totalSettled > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      (₹{totalEarnings.toLocaleString()} - ₹{totalSettled.toLocaleString()})
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -308,7 +338,7 @@ export default function DoctorEarnings() {
                         {appt.appointment_type}
                       </Badge>
                       <div className="text-right min-w-[80px] sm:min-w-[100px]">
-                        <p className="text-sm sm:text-lg font-semibold text-success">₹{appt.amount}</p>
+                        <p className="text-sm sm:text-lg font-semibold text-success">₹{appt.base_amount || appt.amount}</p>
                         <Badge variant="outline" className="text-xs">
                           {appt.payment_status}
                         </Badge>

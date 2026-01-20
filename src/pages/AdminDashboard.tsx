@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -25,6 +28,7 @@ import {
   Calendar,
   TrendingUp,
   Trash2,
+  Download,
 } from "lucide-react";
 
 interface DoctorApplication {
@@ -76,6 +80,31 @@ export default function AdminDashboard() {
     completedPayments: 0,
     pendingPayments: 0,
   });
+
+  // Platform fee settings state
+  const [feeEnabled, setFeeEnabled] = useState(true);
+  const [feeFlat, setFeeFlat] = useState<number>(0);
+  const [feeLoading, setFeeLoading] = useState(false);
+
+  // Doctor revenue state
+  const [doctorRevenue, setDoctorRevenue] = useState<any[]>([]);
+  const [revenueStats, setRevenueStats] = useState<any>({});
+  const [revenueDateRange, setRevenueDateRange] = useState<string>("all");
+  const [revenueLoading, setRevenueLoading] = useState(false);
+
+  // Settlement state
+  const [showSettlementDialog, setShowSettlementDialog] = useState(false);
+  const [selectedDoctorForSettlement, setSelectedDoctorForSettlement] = useState<any>(null);
+  const [settlementForm, setSettlementForm] = useState({
+    amount: 0,
+    payment_method: 'bank_transfer',
+    transaction_id: '',
+    notes: ''
+  });
+  const [settlementLoading, setSettlementLoading] = useState(false);
+  const [settlementHistory, setSettlementHistory] = useState<any[]>([]);
+  const [allSettlements, setAllSettlements] = useState<any>({});
+  const [expandedDoctor, setExpandedDoctor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -137,6 +166,199 @@ export default function AdminDashboard() {
       fetchData();
     }
   }, [isLoading, isAuthenticated, role]);
+
+  // Fetch platform fees on load
+  useEffect(() => {
+    async function fetchFees() {
+      try {
+        setFeeLoading(true);
+        const { data } = await api.get('/settings/platform-fees');
+        setFeeEnabled(!!data.enabled);
+        setFeeFlat(Number(data.fixed || 0));
+      } catch (err: any) {
+        console.error(err);
+        toast.error(err.response?.data?.message || 'Failed to load platform fees');
+      } finally {
+        setFeeLoading(false);
+      }
+    }
+    fetchFees();
+  }, []);
+
+  // Fetch doctor revenue
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && role === "admin") {
+      fetchDoctorRevenue();
+    }
+  }, [revenueDateRange]);
+
+  async function fetchDoctorRevenue() {
+    try {
+      setRevenueLoading(true);
+      
+      // Calculate date range
+      let startDate = null;
+      let endDate = null;
+      
+      if (revenueDateRange !== 'all') {
+        const today = new Date();
+        endDate = new Date(today);
+        
+        if (revenueDateRange === 'today') {
+          startDate = new Date(today);
+        } else if (revenueDateRange === 'month') {
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        } else if (revenueDateRange === 'year') {
+          startDate = new Date(today.getFullYear(), 0, 1);
+        } else if (revenueDateRange === 'last7') {
+          startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        } else if (revenueDateRange === 'last30') {
+          startDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        }
+      }
+
+      const params: any = {};
+      if (startDate) params.startDate = startDate.toISOString().split('T')[0];
+      if (endDate) params.endDate = endDate.toISOString().split('T')[0];
+
+      const { data } = await api.get('/payments/admin/doctor-revenue', { params });
+      const revenueData = data.doctorRevenue || [];
+      
+      // Fetch settlements for all doctors
+      const settlements: any = {};
+      for (const doctor of revenueData) {
+        try {
+          const { data: settlementData } = await api.get(`/payments/admin/settlements/${doctor.doctorId}`);
+          settlements[doctor.doctorId] = settlementData;
+        } catch (err) {
+          settlements[doctor.doctorId] = [];
+        }
+      }
+      setAllSettlements(settlements);
+      
+      setDoctorRevenue(revenueData);
+      setRevenueStats({
+        totalPlatformFees: data.totalPlatformFees || 0,
+        totalDoctorEarnings: data.totalDoctorEarnings || 0,
+        doctorCount: data.doctorCount || 0
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to load revenue data');
+    } finally {
+      setRevenueLoading(false);
+    }
+  }
+
+  async function saveFees() {
+    try {
+      setFeeLoading(true);
+      const { data } = await api.put('/settings/platform-fees', {
+        enabled: feeEnabled,
+        percentage: 0,
+        fixed: feeFlat,
+        minFee: 0,
+        maxFee: 0,
+      });
+      setFeeEnabled(!!data.enabled);
+      setFeeFlat(Number(data.fixed || 0));
+      toast.success('Platform fees saved');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to save platform fees');
+    } finally {
+      setFeeLoading(false);
+    }
+  }
+
+  const handleExportRevenue = () => {
+    // Create CSV content
+    const headers = ["Doctor Name", "Email", "Total Earnings", "Settled Amount", "Remaining Earnings", "Platform Fees", "Consultations", "Completed", "Emergency", "Avg Per Consultation"];
+    const rows = doctorRevenue.map(dr => {
+      const doctorSettlements = allSettlements[dr.doctorId] || [];
+      const settledAmount = doctorSettlements.reduce((sum, s: any) => sum + (s.amount || 0), 0);
+      const remainingEarnings = dr.totalEarnings - settledAmount;
+      return [
+        dr.doctorName,
+        dr.doctorEmail,
+        `₹${dr.totalEarnings}`,
+        `₹${settledAmount}`,
+        `₹${remainingEarnings}`,
+        `₹${dr.platformFeesCollected}`,
+        dr.totalAppointments,
+        dr.completedConsultations,
+        dr.emergencyBookings,
+        `₹${Math.round(dr.totalEarnings / dr.totalAppointments)}`
+      ];
+    });
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.join(","))
+    ].join("\n");
+
+    // Download CSV
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `doctor-revenue-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    toast.success("Revenue report exported successfully");
+  };
+
+  const handleMarkSettled = async () => {
+    if (!selectedDoctorForSettlement) return;
+    if (settlementForm.amount <= 0) {
+      toast.error("Settlement amount must be greater than 0");
+      return;
+    }
+
+    setSettlementLoading(true);
+    try {
+      const today = new Date();
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+      await api.post('/payments/admin/settlements', {
+        doctor_id: selectedDoctorForSettlement.doctorId,
+        amount: settlementForm.amount,
+        period_start: monthStart.toISOString().split('T')[0],
+        period_end: monthEnd.toISOString().split('T')[0],
+        payment_method: settlementForm.payment_method,
+        transaction_id: settlementForm.transaction_id,
+        notes: settlementForm.notes
+      });
+
+      toast.success(`✓ Settlement recorded: ₹${settlementForm.amount} to Dr. ${selectedDoctorForSettlement.doctorName}`);
+      setShowSettlementDialog(false);
+      setSelectedDoctorForSettlement(null);
+      setSettlementForm({ amount: 0, payment_method: 'bank_transfer', transaction_id: '', notes: '' });
+      setSettlementHistory([]);
+      setExpandedDoctor(null);
+      
+      // Refresh revenue data
+      await fetchDoctorRevenue();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to record settlement');
+    } finally {
+      setSettlementLoading(false);
+    }
+  };
+
+  async function fetchSettlementHistory(doctorId: string) {
+    try {
+      const { data } = await api.get(`/payments/admin/settlements/${doctorId}`);
+      setSettlementHistory(data);
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to load settlement history');
+    }
+  }
 
   const handleApprove = async (doctor: DoctorApplication) => {
     setProcessing(true);
@@ -456,7 +678,7 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Doctor Management Tabs */}
+        {/* Doctor Management Tabs + Platform Fees */}
         <Tabs defaultValue="pending">
           <TabsList>
             <TabsTrigger value="pending" className="gap-2">
@@ -470,6 +692,14 @@ export default function AdminDashboard() {
             <TabsTrigger value="rejected" className="gap-2">
               <XCircle className="h-4 w-4" />
               Rejected ({rejectedDoctors.length})
+            </TabsTrigger>
+            <TabsTrigger value="revenue" className="gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Doctor Revenue
+            </TabsTrigger>
+            <TabsTrigger value="fees" className="gap-2">
+              <IndianRupee className="h-4 w-4" />
+              Platform Fees
             </TabsTrigger>
           </TabsList>
 
@@ -523,6 +753,268 @@ export default function AdminDashboard() {
               </div>
             )}
           </TabsContent>
+
+          {/* Doctor Revenue Tab */}
+          <TabsContent value="revenue" className="mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Doctor Revenue & Settlement</CardTitle>
+                    <CardDescription>Track earnings by doctor for payment settlement</CardDescription>
+                  </div>
+                  <Button onClick={handleExportRevenue} disabled={revenueLoading} className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Export Report
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Date Range Filter */}
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { value: 'today', label: 'Today' },
+                    { value: 'last7', label: 'Last 7 Days' },
+                    { value: 'last30', label: 'Last 30 Days' },
+                    { value: 'month', label: 'This Month' },
+                    { value: 'year', label: 'This Year' },
+                    { value: 'all', label: 'All Time' }
+                  ].map(option => (
+                    <Button
+                      key={option.value}
+                      variant={revenueDateRange === option.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setRevenueDateRange(option.value)}
+                      disabled={revenueLoading}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+
+                {/* Revenue Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-success/10 flex items-center justify-center">
+                          <IndianRupee className="h-5 w-5 text-success" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">₹{(() => {
+                            const totalSettled = Object.values(allSettlements).reduce((sum: number, settlements: any) => {
+                              return sum + settlements.reduce((s: number, st: any) => s + (st.amount || 0), 0);
+                            }, 0);
+                            const remaining = revenueStats.totalDoctorEarnings - totalSettled;
+                            return remaining.toLocaleString();
+                          })()}</p>
+                          <p className="text-sm text-muted-foreground">Remaining Earnings</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <IndianRupee className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">₹{revenueStats.totalPlatformFees?.toLocaleString()}</p>
+                          <p className="text-sm text-muted-foreground">Platform Fees</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-info/10 flex items-center justify-center">
+                          <Users className="h-5 w-5 text-info" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{revenueStats.doctorCount}</p>
+                          <p className="text-sm text-muted-foreground">Doctors</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Doctor Revenue List */}
+                {revenueLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-20" />)}
+                  </div>
+                ) : doctorRevenue.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <IndianRupee className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No revenue data available for the selected period</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 overflow-x-auto">
+                    {doctorRevenue.map((dr, idx) => {
+                      // Calculate settled amount from allSettlements
+                      const doctorSettlements = allSettlements[dr.doctorId] || [];
+                      const settledAmount = doctorSettlements.reduce((sum, s: any) => sum + (s.amount || 0), 0);
+                      const remainingEarnings = dr.totalEarnings - settledAmount;
+                      
+                      // Update settlementHistory if this is the expanded doctor
+                      if (expandedDoctor === dr.doctorId) {
+                        // Keep settlementHistory in sync
+                      }
+                      
+                      return (
+                      <div key={idx} className="border rounded-lg overflow-hidden">
+                        <div className="p-4 hover:bg-muted/50 transition-colors">
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div className="flex-1">
+                              <p className="font-semibold">{dr.doctorName}</p>
+                              <p className="text-sm text-muted-foreground">{dr.doctorEmail}</p>
+                              <div className="flex gap-3 mt-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  Completed: {dr.completedConsultations}
+                                </Badge>
+                                <Badge variant="destructive" className="text-xs">
+                                  Emergency: {dr.emergencyBookings}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1 text-right">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Remaining</p>
+                                <p className="text-lg font-semibold">₹{remainingEarnings}</p>
+                                {settledAmount > 0 && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    (₹{dr.totalEarnings} - ₹{settledAmount})
+                                  </p>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Platform Fees</p>
+                                <p className="text-lg font-semibold text-primary">₹{dr.platformFeesCollected}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Consultations</p>
+                                <p className="text-lg font-semibold">{dr.totalAppointments}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Avg</p>
+                                <p className="text-lg font-semibold">₹{Math.round(dr.totalEarnings / dr.totalAppointments)}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-col sm:flex-row">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  if (expandedDoctor === dr.doctorId) {
+                                    setExpandedDoctor(null);
+                                  } else {
+                                    setExpandedDoctor(dr.doctorId);
+                                    fetchSettlementHistory(dr.doctorId);
+                                  }
+                                }}
+                              >
+                                {expandedDoctor === dr.doctorId ? 'Hide' : 'History'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedDoctorForSettlement(dr);
+                                  setSettlementForm({
+                                    ...settlementForm,
+                                    amount: remainingEarnings > 0 ? remainingEarnings : 0
+                                  });
+                                  setShowSettlementDialog(true);
+                                }}
+                              >
+                                Mark Settled
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Settlement History */}
+                        {expandedDoctor === dr.doctorId && (
+                          <div className="border-t bg-muted/30 p-4">
+                            {settlementHistory.length === 0 ? (
+                              <p className="text-sm text-muted-foreground text-center py-4">No settlement history</p>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-center mb-3 pb-3 border-b">
+                                  <div>
+                                    <h4 className="font-semibold text-sm">Settlement History</h4>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Total Settled: ₹{settledAmount} | Remaining: ₹{Math.max(0, remainingEarnings)}
+                                    </p>
+                                  </div>
+                                </div>
+                                {doctorSettlements.map((settlement: any, sidx: number) => (
+                                  <div key={sidx} className="p-3 bg-white rounded border text-sm">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <div>
+                                        <p className="font-medium text-green-600">✓ ₹{settlement.amount}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {new Date(settlement.settled_date).toLocaleDateString()}
+                                        </p>
+                                      </div>
+                                      <Badge variant="outline" className="text-xs">
+                                        {settlement.payment_method.replace('_', ' ')}
+                                      </Badge>
+                                    </div>
+                                    {settlement.transaction_id && (
+                                      <p className="text-xs text-muted-foreground">
+                                        <strong>ID:</strong> {settlement.transaction_id}
+                                      </p>
+                                    )}
+                                    {settlement.notes && (
+                                      <p className="text-xs mt-1">{settlement.notes}</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="fees" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Platform Fees</CardTitle>
+                <CardDescription>Configure fees applied to each appointment at booking time.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-6 max-w-xl">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="fee-enabled">Enable Platform Fees</Label>
+                  <Switch id="fee-enabled" checked={feeEnabled} onCheckedChange={setFeeEnabled} />
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <Label htmlFor="fee-flat">Platform Fee (₹)</Label>
+                    <Input
+                      id="fee-flat"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={feeFlat}
+                      onChange={(e) => setFeeFlat(parseFloat(e.target.value || '0'))}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button disabled={feeLoading} onClick={saveFees}>{feeLoading ? 'Saving...' : 'Save Changes'}</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -547,6 +1039,73 @@ export default function AdminDashboard() {
             </Button>
             <Button variant="destructive" onClick={handleReject} disabled={processing}>
               Reject Application
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settlement Dialog */}
+      <Dialog open={showSettlementDialog} onOpenChange={setShowSettlementDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Doctor Settlement</DialogTitle>
+            <DialogDescription>
+              Record payment settlement for Dr. {selectedDoctorForSettlement?.doctorName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="settlement-amount">Settlement Amount (₹)</Label>
+              <Input
+                id="settlement-amount"
+                type="number"
+                min={0}
+                step={1}
+                value={settlementForm.amount}
+                onChange={(e) => setSettlementForm({ ...settlementForm, amount: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="settlement-method">Payment Method</Label>
+              <select
+                id="settlement-method"
+                className="w-full p-2 border rounded-md"
+                value={settlementForm.payment_method}
+                onChange={(e) => setSettlementForm({ ...settlementForm, payment_method: e.target.value })}
+              >
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="check">Check</option>
+                <option value="cash">Cash</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="settlement-tx">Transaction ID</Label>
+              <Input
+                id="settlement-tx"
+                type="text"
+                placeholder="e.g., UTR/Check Number"
+                value={settlementForm.transaction_id}
+                onChange={(e) => setSettlementForm({ ...settlementForm, transaction_id: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="settlement-notes">Notes</Label>
+              <Textarea
+                id="settlement-notes"
+                placeholder="Optional notes..."
+                value={settlementForm.notes}
+                onChange={(e) => setSettlementForm({ ...settlementForm, notes: e.target.value })}
+                className="min-h-[80px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSettlementDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleMarkSettled} disabled={settlementLoading}>
+              {settlementLoading ? 'Recording...' : 'Record Settlement'}
             </Button>
           </DialogFooter>
         </DialogContent>

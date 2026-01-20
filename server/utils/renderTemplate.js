@@ -16,10 +16,20 @@ function renderTemplate(templatePath, context = {}) {
         
         return array.map(item => {
             let itemContent = innerContent;
-            // Replace this.property with actual values
-            for (const key of Object.keys(item)) {
-                const re = new RegExp(`{{\\s*this\\.${key}\\s*}}`, 'g');
-                itemContent = itemContent.replace(re, item[key] || '');
+            // Replace {{this.property}} with actual values
+            if (typeof item === 'object' && item !== null) {
+                for (const key of Object.keys(item)) {
+                    const re = new RegExp(`{{\\s*this\\.${key}\\s*}}`, 'g');
+                    let value = item[key];
+                    // Convert arrays and objects to strings or handle them gracefully
+                    if (typeof value === 'object') {
+                        value = JSON.stringify(value);
+                    }
+                    itemContent = itemContent.replace(re, String(value || ''));
+                }
+            } else {
+                // If item is a primitive, replace {{this}} with the value
+                itemContent = itemContent.replace(/{{this}}/g, String(item));
             }
             return itemContent;
         }).join('');

@@ -57,16 +57,21 @@ async function sendEmail({ to, subject, text, html }) {
                 },
             });
 
-            await transporter.sendMail({
+            const result = await transporter.sendMail({
                 from: process.env.EMAIL_FROM,
                 to,
                 subject,
                 text,
                 html,
             });
+            
+            console.log(`✅ Email sent successfully to ${to} | MessageID: ${result.messageId}`);
             return true;
         } catch (err) {
-            console.error('SMTP send failed', err);
+            console.error(`❌ SMTP send failed to ${to}`);
+            console.error(`   Error: ${err.message}`);
+            console.error(`   Code: ${err.code}`);
+            console.error(`   Full Error:`, err);
         }
     }
 
