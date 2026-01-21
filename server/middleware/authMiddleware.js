@@ -13,11 +13,18 @@ const protect = async (req, res, next) => {
 
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-            req.user = await User.findById(decoded.id).select('-password');
+            const user = await User.findById(decoded.id).select('-password');
 
-            if (!req.user) {
+            if (!user) {
                 return res.status(401).json({ message: 'Not authorized, user removed' });
             }
+
+            // Enforce single-session: token must carry the current sessionId
+            if (!decoded.sessionId || user.currentSessionId !== decoded.sessionId) {
+                return res.status(401).json({ message: 'Session invalidated. You have logged in elsewhere.' });
+            }
+
+            req.user = user;
 
             next();
         } catch (error) {

@@ -3,7 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuthContext } from "@/contexts/AuthContext";
+import InvalidatedSessionBanner from "@/components/ui/InvalidatedSessionBanner";
 import React from 'react';
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -31,6 +32,19 @@ import DoctorEarnings from "./pages/DoctorEarnings";
 
 const queryClient = new QueryClient();
 
+function GlobalBanner() {
+  const { sessionInvalidatedMessage, dismissInvalidation } = useAuthContext();
+  return (
+    <>
+      <InvalidatedSessionBanner
+        message={sessionInvalidatedMessage}
+        onClose={dismissInvalidation}
+      />
+      {sessionInvalidatedMessage ? <div className="h-[64px]" aria-hidden /> : null}
+    </>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -38,6 +52,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <GlobalBanner />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />

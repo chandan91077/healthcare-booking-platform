@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import api from "@/lib/api";
 import { getCurrentUser, getUserRole, signIn, signUp, signOut, type AppRole } from "@/lib/auth";
 
 // Define a User type that matches our new system
@@ -16,11 +17,16 @@ export interface Session {
   token: string;
 }
 
+export interface AuthInvalidationState {
+  message: string | null;
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [invalidation, setInvalidation] = useState<AuthInvalidationState>({ message: null });
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -34,6 +40,16 @@ export function useAuth() {
         // Get role (either from user object or fetch)
         const userRole = await getUserRole(currentUser._id || currentUser.id);
         setRole(userRole);
+
+        // Validate token with backend to catch invalidated sessions
+        try {
+          await api.get('/auth/profile');
+        } catch (e: any) {
+          // If token invalid, state will be reset by interceptor; ensure local state follows
+          setUser(null);
+          setSession(null);
+          setRole(null);
+        }
       } else {
         setUser(null);
         setSession(null);
@@ -50,7 +66,19 @@ export function useAuth() {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    // Listen for custom auth logout events triggered by interceptors
+    window.addEventListener('auth:logout', handleStorageChange as EventListener);
+    // Listen for session invalidation to show banner
+    const handleInvalidation = (e: Event) => {
+      const ce = e as CustomEvent<string>;
+      setInvalidation({ message: ce.detail || "You've logged in elsewhere." });
+    };
+    window.addEventListener('auth:sessionInvalidated', handleInvalidation as EventListener);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('auth:logout', handleStorageChange as EventListener);
+      window.removeEventListener('auth:sessionInvalidated', handleInvalidation as EventListener);
+    };
   }, []);
 
   const login = async (credentials: any) => {
@@ -96,6 +124,10 @@ export function useAuth() {
     setRole(null);
   };
 
+  const dismissInvalidation = () => {
+    setInvalidation({ message: null });
+  };
+
   return {
     user,
     session,
@@ -104,6 +136,8 @@ export function useAuth() {
     isAuthenticated: !!session,
     login,
     register,
-    logout
+    logout,
+    sessionInvalidatedMessage: invalidation.message,
+    dismissInvalidation
   };
 }
