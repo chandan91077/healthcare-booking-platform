@@ -83,7 +83,7 @@ export default function AdminDashboard() {
 
   // Platform fee settings state
   const [feeEnabled, setFeeEnabled] = useState(true);
-  const [feeFlat, setFeeFlat] = useState<number>(0);
+  const [feePercentage, setFeePercentage] = useState<number>(2.5);
   const [feeLoading, setFeeLoading] = useState(false);
 
   // Doctor revenue state
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
         setFeeLoading(true);
         const { data } = await api.get('/settings/platform-fees');
         setFeeEnabled(!!data.enabled);
-        setFeeFlat(Number(data.fixed || 0));
+        setFeePercentage(Number(data.percentage || 2.5));
       } catch (err: any) {
         console.error(err);
         toast.error(err.response?.data?.message || 'Failed to load platform fees');
@@ -255,13 +255,13 @@ export default function AdminDashboard() {
       setFeeLoading(true);
       const { data } = await api.put('/settings/platform-fees', {
         enabled: feeEnabled,
-        percentage: 0,
-        fixed: feeFlat,
+        percentage: feePercentage,
+        fixed: 0,
         minFee: 0,
         maxFee: 0,
       });
       setFeeEnabled(!!data.enabled);
-      setFeeFlat(Number(data.fixed || 0));
+      setFeePercentage(Number(data.percentage || 2.5));
       toast.success('Platform fees saved');
     } catch (err: any) {
       console.error(err);
@@ -992,15 +992,20 @@ export default function AdminDashboard() {
                 </div>
                 <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <Label htmlFor="fee-flat">Platform Fee (₹)</Label>
-                    <Input
-                      id="fee-flat"
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={feeFlat}
-                      onChange={(e) => setFeeFlat(parseFloat(e.target.value || '0'))}
-                    />
+                    <Label htmlFor="fee-percentage">Platform Fee (%)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="fee-percentage"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        value={feePercentage}
+                        onChange={(e) => setFeePercentage(parseFloat(e.target.value || '0'))}
+                      />
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">%</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">Example: ₹500 consultation fee × {feePercentage}% = ₹{Math.round((500 * feePercentage) / 100)} platform fee</p>
                   </div>
                 </div>
                 <div className="flex gap-2">

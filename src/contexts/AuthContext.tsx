@@ -11,6 +11,8 @@ interface AuthContextType {
   login: (credentials: any) => Promise<any>;
   register: (userData: any) => Promise<any>;
   logout: () => Promise<void>;
+  sessionInvalidatedMessage: string | null;
+  dismissInvalidation: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

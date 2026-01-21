@@ -1,9 +1,10 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { sendEmail } = require('../services/emailService');
 
-const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, {
+const generateToken = (id, sessionId) => {
+    return jwt.sign({ id, sessionId }, process.env.JWT_SECRET, {
         expiresIn: '30d',
     });
 };
@@ -18,7 +19,7 @@ const registerUser = async (req, res) => {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        const user = await User.create({
+        let user = await User.create({
             full_name,
             email,
             password,
@@ -76,12 +77,17 @@ const registerUser = async (req, res) => {
                 // Don't fail registration if email fails
             }
 
+            // Create a new session for the newly registered user
+            const sessionId = crypto.randomBytes(16).toString('hex');
+            user.currentSessionId = sessionId;
+            user = await user.save();
+
             res.status(201).json({
                 _id: user._id,
                 full_name: user.full_name,
                 email: user.email,
                 role: user.role,
-                token: generateToken(user._id),
+                token: generateToken(user._id, sessionId),
             });
         } else {
             res.status(400).json({ message: 'Invalid user data' });
@@ -98,12 +104,17 @@ const authUser = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
+            // Create a new session and invalidate any previous one
+            const sessionId = crypto.randomBytes(16).toString('hex');
+            user.currentSessionId = sessionId;
+            await user.save();
+
             res.json({
                 _id: user._id,
                 full_name: user.full_name,
                 email: user.email,
                 role: user.role,
-                token: generateToken(user._id),
+                token: generateToken(user._id, sessionId),
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });
@@ -139,13 +150,14 @@ const updateUserProfile = async (req, res) => {
             }
 
             const updatedUser = await user.save();
+            // Do not rotate session on profile update; return token consistent with current session if needed
             res.json({
                 _id: updatedUser._id,
                 full_name: updatedUser.full_name,
                 email: updatedUser.email,
                 phone: updatedUser.phone,
                 role: updatedUser.role,
-                token: generateToken(updatedUser._id), // Optional: Refresh token if needed
+                token: generateToken(updatedUser._id, updatedUser.currentSessionId),
             });
         } else {
             res.status(404).json({ message: 'User not found' });
@@ -155,4 +167,19 @@ const updateUserProfile = async (req, res) => {
     }
 }
 
-module.exports = { registerUser, authUser, getUserProfile, updateUserProfile };
+// Logout: clear current session so token becomes invalid
+const logoutUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        user.currentSessionId = null;
+        await user.save();
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+}
+
+module.exports = { registerUser, authUser, getUserProfile, updateUserProfile, logoutUser };

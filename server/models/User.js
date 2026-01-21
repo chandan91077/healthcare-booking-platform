@@ -50,6 +50,11 @@ const userSchema = new mongoose.Schema({
             default: true,
         },
     },
+    // Single-session enforcement: current active session ID
+    currentSessionId: {
+        type: String,
+        default: null,
+    },
 }, { timestamps: true });
 
 // Encrypt password using bcrypt
