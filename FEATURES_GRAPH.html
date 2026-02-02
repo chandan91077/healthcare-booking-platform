@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthLink Connect - Features by Role</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .tab-button {
+            padding: 12px 30px;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            cursor: pointer;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .tab-button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .tab-button.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .content {
+            display: none;
+        }
+        
+        .content.active {
+            display: block;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+            transform: translateY(-5px);
+        }
+        
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 10px;
+        }
+        
+        .features-list {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .features-list h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .feature-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: white;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .feature-icon {
+            font-size: 1.2em;
+        }
+        
+        .diagram-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+        
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 HealthLink Connect</h1>
+        <p class="subtitle">Feature Distribution by User Role</p>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('patient')">👤 Patient</button>
+            <button class="tab-button" onclick="switchTab('doctor')">👨‍⚕️ Doctor</button>
+            <button class="tab-button" onclick="switchTab('admin')">⚙️ Admin</button>
+            <button class="tab-button" onclick="switchTab('overview')">📊 Overview</button>
+        </div>
+        
+        <!-- PATIENT SECTION -->
+        <div id="patient" class="content active">
+            <div class="grid">
+                <div class="card">
+                    <h2>📈 Features Distribution</h2>
+                    <div class="chart-container">
+                        <canvas id="patientFeatureChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>✨ Core Features</h2>
+                    <div class="features-list">
+                        <h3>Appointment Management</h3>
+                        <div class="feature-item">
+                            <span class="feature-icon">📅</span>
+                            <span>Book Appointments</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">📋</span>
+                            <span>View Upcoming Appointments</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">⏰</span>
+                            <span>Past Appointments History</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">ℹ️</span>
+                            <span>Appointment Details & Status</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid">
+                <div class="card">
+                    <h2>💬 Communication & Health</h2>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <span class="feature-icon">💭</span>
+                            <span>In-App Chat with Doctors</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">📨</span>
+                            <span>Messages Inbox</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">💊</span>
+                            <span>View Prescriptions</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🔔</span>
+                            <span>Notifications</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>🔍 Discovery & Payment</h2>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <span class="feature-icon">👨‍⚕️</span>
+                            <span>Browse Available Doctors</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🏥</span>
+                            <span>Filter by Specialization</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">💳</span>
+                            <span>Secure Payment Processing</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">⚙️</span>
+                            <span>Settings & Profile Management</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">8</div>
+                    <div class="stat-label">Core Features</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">12</div>
+                    <div class="stat-label">Total Pages/Sections</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">∞</div>
+                    <div class="stat-label">Doctor Options</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- DOCTOR SECTION -->
+        <div id="doctor" class="content">
+            <div class="grid">
+                <div class="card">
+                    <h2>📈 Features Distribution</h2>
+                    <div class="chart-container">
+                        <canvas id="doctorFeatureChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>✨ Core Features</h2>
+                    <div class="features-list">
+                        <h3>Practice Management</h3>
+                        <div class="feature-item">
+                            <span class="feature-icon">📝</span>
+                            <span>Doctor Registration</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">👤</span>
+                            <span>Profile Management</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">⏰</span>
+                            <span>Set Availability Schedule</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">📊</span>
+                            <span>Dashboard Overview</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid">
+                <div class="card">
+                    <h2>📋 Patient & Appointment Management</h2>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <span class="feature-icon">📋</span>
+                            <span>View Appointments</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">⏰</span>
+                            <span>Past Appointments History</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🔍</span>
+                            <span>View Patient History</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">ℹ️</span>
+                            <span>Appointment Details</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>💬 Communication & Documentation</h2>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <span class="feature-icon">💭</span>
+                            <span>Chat with Patients</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">📨</span>
+                            <span>Messages Management</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">💊</span>
+                            <span>Issue Prescriptions</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">💰</span>
+                            <span>View Earnings Report</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">9</div>
+                    <div class="stat-label">Core Features</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">7</div>
+                    <div class="stat-label">Dedicated Pages</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">24/7</div>
+                    <div class="stat-label">Patient Access</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ADMIN SECTION -->
+        <div id="admin" class="content">
+            <div class="grid">
+                <div class="card">
+                    <h2>📈 Features Distribution</h2>
+                    <div class="chart-container">
+                        <canvas id="adminFeatureChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>✨ Core Features</h2>
+                    <div class="features-list">
+                        <h3>System Management</h3>
+                        <div class="feature-item">
+                            <span class="feature-icon">📊</span>
+                            <span>Admin Dashboard</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">👥</span>
+                            <span>Manage Users</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">👨‍⚕️</span>
+                            <span>Manage Doctors</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">✅</span>
+                            <span>Doctor Verification</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid">
+                <div class="card">
+                    <h2>📈 Reporting & Analytics</h2>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <span class="feature-icon">📊</span>
+                            <span>System Statistics</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">💹</span>
+                            <span>Revenue Reports</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🔍</span>
+                            <span>Appointment Analytics</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">📋</span>
+                            <span>User Activity Logs</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>⚙️ Configuration & Maintenance</h2>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <span class="feature-icon">📂</span>
+                            <span>Manage Specializations</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🔐</span>
+                            <span>System Security Settings</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🗑️</span>
+                            <span>Data Management</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">⚠️</span>
+                            <span>System Maintenance</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">9</div>
+                    <div class="stat-label">Core Features</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">2</div>
+                    <div class="stat-label">Dedicated Pages</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">Control</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- OVERVIEW SECTION -->
+        <div id="overview" class="content">
+            <div class="grid">
+                <div class="card full-width">
+                    <h2>📊 Features Comparison</h2>
+                    <div class="chart-container" style="height: 500px;">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="diagram-container">
+                <h2 style="color: #667eea; margin-bottom: 20px;">🏗️ System Architecture</h2>
+                <div class="mermaid">
+                    graph TB
+                        subgraph Patient["👤 PATIENT"]
+                            PA["📅 Book Appointments"]
+                            PB["💬 Chat with Doctors"]
+                            PC["💊 View Prescriptions"]
+                            PD["💳 Process Payments"]
+                            PE["🔔 Notifications"]
+                        end
+                        
+                        subgraph Doctor["👨‍⚕️ DOCTOR"]
+                            DA["⏰ Manage Availability"]
+                            DB["📋 View Appointments"]
+                            DC["💬 Chat with Patients"]
+                            DD["💊 Issue Prescriptions"]
+                            DE["💰 View Earnings"]
+                        end
+                        
+                        subgraph Admin["⚙️ ADMIN"]
+                            AA["👥 Manage Users"]
+                            AB["👨‍⚕️ Manage Doctors"]
+                            AC["📊 View Analytics"]
+                            AD["📂 Settings"]
+                            AE["✅ Verify Doctors"]
+                        end
+                        
+                        DB -.->|Appointments| PA
+                        DC -.->|Messages| PB
+                        DD -.->|Prescriptions| PC
+                        AA -.->|Oversight| Patient
+                        AB -.->|Oversight| Doctor
+                        AC -.->|Monitor| Patient
+                        AC -.->|Monitor| Doctor
+                </div>
+            </div>
+            
+            <div class="grid">
+                <div class="card">
+                    <h2>📱 Patient Role</h2>
+                    <div class="features-list">
+                        <h3>Key Responsibilities</h3>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Schedule appointments with doctors</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Manage health appointments</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Communicate with healthcare providers</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Access medical prescriptions</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>👨‍⚕️ Doctor Role</h2>
+                    <div class="features-list">
+                        <h3>Key Responsibilities</h3>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Manage patient appointments</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Set availability schedule</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Provide consultations</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Track earnings & payments</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>⚙️ Admin Role</h2>
+                    <div class="features-list">
+                        <h3>Key Responsibilities</h3>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Oversee all system activities</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Verify doctor credentials</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Monitor analytics & reports</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🎯</span>
+                            <span>Manage system configuration</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function switchTab(tabName) {
+            // Hide all content
+            const contents = document.querySelectorAll('.content');
+            contents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all buttons
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(button => button.classList.remove('active'));
+            
+            // Show selected content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+            
+            // Trigger chart redraw
+            setTimeout(() => {
+                if (window.patientChart) patientChart.resize();
+                if (window.doctorChart) doctorChart.resize();
+                if (window.adminChart) adminChart.resize();
+                if (window.comparisonChartInstance) comparisonChartInstance.resize();
+                mermaid.contentLoaded();
+            }, 100);
+        }
+        
+        // Chart configurations
+        const chartConfig = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: { size: 12 }
+                    }
+                }
+            }
+        };
+        
+        // Patient Features Chart
+        const patientCtx = document.getElementById('patientFeatureChart').getContext('2d');
+        window.patientChart = new Chart(patientCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Appointments', 'Communication', 'Health Records', 'Payments', 'Discovery'],
+                datasets: [{
+                    data: [25, 25, 20, 15, 15],
+                    backgroundColor: [
+                        '#667eea',
+                        '#764ba2',
+                        '#f093fb',
+                        '#4facfe',
+                        '#00f2fe'
+                    ],
+                    borderColor: '#fff',
+                    borderWidth: 2
+                }]
+            },
+            options: chartConfig
+        });
+        
+        // Doctor Features Chart
+        const doctorCtx = document.getElementById('doctorFeatureChart').getContext('2d');
+        window.doctorChart = new Chart(doctorCtx, {
+            type: 'radar',
+            data: {
+                labels: ['Profile Management', 'Availability', 'Appointments', 'Patient History', 'Prescriptions', 'Communications', 'Earnings'],
+                datasets: [{
+                    label: 'Doctor Features',
+                    data: [85, 90, 85, 80, 85, 85, 80],
+                    borderColor: '#764ba2',
+                    backgroundColor: 'rgba(118, 75, 162, 0.25)',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#764ba2'
+                }]
+            },
+            options: {
+                ...chartConfig,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            stepSize: 20
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Admin Features Chart
+        const adminCtx = document.getElementById('adminFeatureChart').getContext('2d');
+        window.adminChart = new Chart(adminCtx, {
+            type: 'bar',
+            data: {
+                labels: ['User Management', 'Doctor Management', 'Analytics', 'Verification', 'System Config', 'Monitoring'],
+                datasets: [{
+                    label: 'Admin Features',
+                    data: [90, 95, 85, 95, 85, 80],
+                    backgroundColor: [
+                        '#667eea',
+                        '#764ba2',
+                        '#f093fb',
+                        '#4facfe',
+                        '#00f2fe',
+                        '#43e97b'
+                    ],
+                    borderRadius: 8,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                ...chartConfig,
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+        
+        // Comparison Chart
+        const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+        window.comparisonChartInstance = new Chart(comparisonCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Appointment Management', 'Communication', 'Payment Processing', 'Data Access', 'System Management', 'Analytics', 'User Management'],
+                datasets: [
+                    {
+                        label: 'Patient',
+                        data: [95, 85, 90, 85, 0, 20, 0],
+                        backgroundColor: '#667eea'
+                    },
+                    {
+                        label: 'Doctor',
+                        data: [90, 90, 40, 90, 30, 30, 0],
+                        backgroundColor: '#764ba2'
+                    },
+                    {
+                        label: 'Admin',
+                        data: [70, 60, 50, 100, 95, 95, 95],
+                        backgroundColor: '#f093fb'
+                    }
+                ]
+            },
+            options: {
+                ...chartConfig,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+        
+        // Initialize Mermaid
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+</html>

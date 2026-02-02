@@ -10,7 +10,13 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+    origin: [
+        'http://localhost:8080',
+        'http://localhost:3000',
+        'http://10.0.2.2:5000',
+        'http://10.0.2.2:8080',
+        /^http:\/\/192\.168\.\d+\.\d+:\d+$/ // Allow any local network IP
+    ],
     credentials: true
 }));
 app.use(express.json());
