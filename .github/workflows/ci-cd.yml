@@ -65,6 +65,9 @@ jobs:
   deploy:
     name: Deploy Frontend & Backend
     runs-on: ubuntu-latest
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets['RENDER_DEPLOY_HOOK_URL'] }}
+      VERCEL_DEPLOY_HOOK_URL: ${{ secrets['VERCEL_DEPLOY_HOOK_URL'] }}
     needs:
       - frontend-ci
       - backend-ci
@@ -72,19 +75,15 @@ jobs:
 
     steps:
       - name: Trigger Render backend deploy
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
         run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
 
       - name: Trigger Vercel frontend deploy
-        if: ${{ secrets.VERCEL_DEPLOY_HOOK_URL != '' }}
-        env:
-          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        if: env.VERCEL_DEPLOY_HOOK_URL != ''
         run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL"
 
       - name: Report missing deployment hooks
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL == '' || secrets.VERCEL_DEPLOY_HOOK_URL == '' }}
+        if: env.RENDER_DEPLOY_HOOK_URL == '' || env.VERCEL_DEPLOY_HOOK_URL == ''
         run: |
           echo "One or more deployment hooks are missing."
           echo "Set repository secrets: RENDER_DEPLOY_HOOK_URL and VERCEL_DEPLOY_HOOK_URL"
