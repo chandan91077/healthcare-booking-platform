@@ -63,7 +63,7 @@ jobs:
         run: npm test -- --ci
 
   deploy:
-    name: Deploy to AWS
+    name: Deploy to EC2
     runs-on: ubuntu-latest
     needs:
       - frontend-ci
@@ -71,23 +71,21 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-      - name: Deploy using AWS command
+      - name: Deploy using EC2 SSH
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_DEPLOY_COMMAND: ${{ secrets.AWS_DEPLOY_COMMAND }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
-          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$AWS_REGION" ]; then
-            echo "Skipping deployment: set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION secrets."
+          if [ -z "$EC2_HOST" ] || [ -z "$EC2_USER" ] || [ -z "$EC2_SSH_KEY" ]; then
+            echo "Skipping deployment: set EC2_HOST, EC2_USER, and EC2_SSH_KEY secrets."
             exit 0
           fi
 
-          if [ -z "$AWS_DEPLOY_COMMAND" ]; then
-            echo "Skipping deployment: set AWS_DEPLOY_COMMAND secret with your deployment command."
-            echo "Example: aws s3 sync dist s3://your-bucket --delete"
-            exit 0
-          fi
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
-          echo "Running AWS deployment command"
-          eval "$AWS_DEPLOY_COMMAND"
+          echo "Running remote deploy on EC2"
+          ssh "$EC2_USER@$EC2_HOST" "cd /var/www/healthcare-booking-platform && git pull origin main && npm ci && npm run build && pm2 restart all"
