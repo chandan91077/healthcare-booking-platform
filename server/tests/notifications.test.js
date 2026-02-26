@@ -28,9 +28,9 @@ describe('Notifications API', () => {
     await Notification.create({ user_id: user._id, message: 'n1' });
     await Notification.create({ user_id: user._id, message: 'n2' });
 
-    // call mark-all-read (protected) - should be 403 when not authenticated
+    // call mark-all-read (protected) - should be 401 when not authenticated
     const res = await request(app).put('/api/notifications/mark-all-read');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
 
     // the route is protected; full end-to-end auth testing is out of scope for this simple test suite
     const count = await Notification.countDocuments({ user_id: user._id, read: false });
