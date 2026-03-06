@@ -9,8 +9,21 @@ const { startAutoCancellationJob } = require('./utils/cron-jobs');
 const app = express();
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map((url) => url.trim()) : true,
+    credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+
+app.get('/', (req, res) => {
+    res.status(200).json({ message: 'HealthLink backend is running' });
+});
+
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok' });
+});
 
 // Database Connection
 connectDB();
