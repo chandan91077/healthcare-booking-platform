@@ -79,14 +79,15 @@ export default function Auth() {
   const handleSignIn = async (data: SignInFormData) => {
     setIsLoading(true);
     try {
-      await login({ email: data.email, password: data.password });
+      await login({ email: data.email.trim().toLowerCase(), password: data.password });
       toast.success("Welcome back!");
       // Navigation will happen via useEffect
     } catch (error: any) {
-      if (error.message?.includes("Invalid login credentials")) {
+      const message = error?.message || "";
+      if (message.includes("Invalid login credentials") || message.includes("Invalid email or password")) {
         toast.error("Invalid email or password");
       } else {
-        toast.error(error.message || "Failed to sign in");
+        toast.error(message || "Failed to sign in");
       }
     } finally {
       setIsLoading(false);

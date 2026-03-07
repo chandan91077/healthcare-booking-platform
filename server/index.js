@@ -9,8 +9,26 @@ const { startAutoCancellationJob } = require('./utils/cron-jobs');
 const app = express();
 
 // Middleware
+const configuredOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map((url) => url.trim()).filter(Boolean)
+    : [];
+
+const defaultOrigins = ['http://localhost:8080', 'http://127.0.0.1:8080'];
+const allowedOrigins = [...new Set([...configuredOrigins, ...defaultOrigins])];
+
 const corsOptions = {
-    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map((url) => url.trim()) : true,
+    origin: (origin, callback) => {
+        // Allow non-browser requests (Postman/curl/server-side jobs)
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
 };
 
