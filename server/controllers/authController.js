@@ -83,6 +83,13 @@ const updateUserProfile = async (req, res) => {
             user.full_name = req.body.full_name || user.full_name;
             user.phone = req.body.phone || user.phone;
             user.email = req.body.email || user.email; // Usually email updates require verify, but allowing for now needed? Settings.tsx says "Email cannot be changed"
+            user.locale = req.body.locale || user.locale;
+            if (req.body.notification_preferences) {
+                user.notification_preferences = {
+                    ...user.notification_preferences,
+                    ...req.body.notification_preferences,
+                };
+            }
             if (req.body.password) {
                 user.password = req.body.password;
             }
@@ -93,7 +100,11 @@ const updateUserProfile = async (req, res) => {
                 full_name: updatedUser.full_name,
                 email: updatedUser.email,
                 phone: updatedUser.phone,
+                avatar_url: updatedUser.avatar_url,
                 role: updatedUser.role,
+                locale: updatedUser.locale,
+                notification_preferences: updatedUser.notification_preferences,
+                createdAt: updatedUser.createdAt,
                 token: generateToken(updatedUser._id), // Optional: Refresh token if needed
             });
         } else {

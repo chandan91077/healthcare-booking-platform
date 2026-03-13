@@ -15,6 +15,7 @@ const configuredOrigins = process.env.FRONTEND_URL
 
 const defaultOrigins = ['http://localhost:8080', 'http://127.0.0.1:8080'];
 const allowedOrigins = [...new Set([...configuredOrigins, ...defaultOrigins])];
+const localhostOriginPattern = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 const corsOptions = {
     origin: (origin, callback) => {
@@ -27,12 +28,19 @@ const corsOptions = {
             return callback(null, true);
         }
 
-        return callback(new Error(`CORS blocked for origin: ${origin}`));
+        if (localhostOriginPattern.test(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(null, false);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
 app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 app.get('/', (req, res) => {
@@ -56,6 +64,7 @@ app.use('/api/prescriptions', require('./routes/prescriptions'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/availability', require('./routes/availability'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/medical-records', require('./routes/medicalRecords'));
 
 const PORT = process.env.PORT || 5000;
 

@@ -177,6 +177,7 @@ router.put('/:id', protect, async (req, res) => {
     try {
         const { status, payment_status, notes } = req.body;
         const appointment = await Appointment.findById(req.params.id);
+        const previousStatus = appointment?.status;
 
         if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
@@ -187,6 +188,20 @@ router.put('/:id', protect, async (req, res) => {
             if (status === 'confirmed') {
                 appointment.chat_unlocked = true;
                 appointment.video_unlocked = true;
+
+                if (previousStatus !== 'confirmed') {
+                    const Notification = require('../models/Notification');
+                    await Notification.create({
+                        user_id: appointment.patient_id,
+                        type: 'appointment_confirmed',
+                        message: `Your appointment on ${appointment.appointment_date} at ${appointment.appointment_time} has been confirmed by doctor.`,
+                        data: {
+                            appointment_id: appointment._id,
+                            appointment_date: appointment.appointment_date,
+                            appointment_time: appointment.appointment_time,
+                        },
+                    });
+                }
             }
         } else if (status === 'cancelled' && req.user.role === 'patient') {
             appointment.status = status;
