@@ -25,6 +25,7 @@ import {
   Calendar,
   TrendingUp,
   Trash2,
+  Download,
 } from "lucide-react";
 
 interface DoctorApplication {
@@ -54,6 +55,59 @@ interface PaymentStats {
   pendingPayments: number;
 }
 
+interface DoctorEarningSummary {
+  doctor_id: string;
+  doctor_name: string;
+  doctor_email: string | null;
+  total_earnings: number;
+  settled_earnings: number;
+  unsettled_earnings: number;
+  total_payments: number;
+  unsettled_payments: number;
+  normal_appointments: number;
+  emergency_appointments: number;
+}
+
+interface AdminPaymentRecord {
+  _id: string;
+  amount: number;
+  settled_amount?: number;
+  last_settlement_amount?: number;
+  settlement_status: "settled" | "unsettled";
+  settlement_notes?: string;
+  settled_at: string | null;
+  createdAt: string;
+  appointment_id?: {
+    _id?: string;
+    appointment_date?: string;
+    appointment_time?: string;
+    doctor_id?: {
+      _id?: string;
+      user_id?: {
+        full_name?: string;
+        email?: string;
+      };
+    };
+    patient_id?: {
+      _id?: string;
+      full_name?: string;
+      email?: string;
+    };
+  };
+  patient_id?: {
+    full_name?: string;
+    email?: string;
+  };
+}
+
+interface SettlementHistoryGroup {
+  settlement_key: string;
+  total_amount: number;
+  settled_at: string | null;
+  settlement_notes: string;
+  settled_payments_count: number;
+}
+
 export default function AdminDashboard() {
   const { user, role, isLoading, isAuthenticated } = useAuthContext();
   const navigate = useNavigate();
@@ -65,6 +119,21 @@ export default function AdminDashboard() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [doctorToDelete, setDoctorToDelete] = useState<DoctorApplication | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [settlingDoctorId, setSettlingDoctorId] = useState<string | null>(null);
+  const [showSettleDialog, setShowSettleDialog] = useState(false);
+  const [selectedEarning, setSelectedEarning] = useState<DoctorEarningSummary | null>(null);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [historyDoctor, setHistoryDoctor] = useState<DoctorEarningSummary | null>(null);
+  const [settlementAmountInput, setSettlementAmountInput] = useState("");
+  const [settlementNoteInput, setSettlementNoteInput] = useState("");
+  const [doctorEarnings, setDoctorEarnings] = useState<DoctorEarningSummary[]>([]);
+  const [adminPayments, setAdminPayments] = useState<AdminPaymentRecord[]>([]);
+  const [settlementFrom, setSettlementFrom] = useState("");
+  const [settlementTo, setSettlementTo] = useState("");
+  const [settlementStatusFilter, setSettlementStatusFilter] = useState<"all" | "settled" | "unsettled">("all");
+  const [platformFee, setPlatformFee] = useState(0);
+  const [platformFeeInput, setPlatformFeeInput] = useState("0");
+  const [savingPlatformFee, setSavingPlatformFee] = useState(false);
   const [paymentStats, setPaymentStats] = useState<PaymentStats>({
     totalRevenue: 0,
     totalAppointments: 0,
@@ -85,11 +154,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function fetchData() {
-      // Fetch doctors (Admin route)
       try {
         const { data: doctorsData } = await api.get('/doctors/admin/all');
 
-        // Map user_id to profiles structure to match interface for now
         const mappedDoctors = doctorsData.map((doc: any) => ({
           ...doc,
           id: doc._id,
@@ -102,22 +169,30 @@ export default function AdminDashboard() {
 
         setDoctors(mappedDoctors as DoctorApplication[]);
 
-        // Fetch stats - I need a stats endpoint or fetch all counts.
-        // For MVP, since I don't have stats endpoint, I will just list "Total Doctors" from length.
-        // For Payments, I need /api/payments/all (admin only).
-        // I haven't implemented /api/payments/all.
-        // I will implement it now.
-        // Or simply stub it for now to avoid blocking.
-        // Let's stub stats to 0 or fetch basic info.
+        const { data: payments } = await api.get('/payments/admin/all');
+        const { data: earningsData } = await api.get('/payments/admin/doctor-earnings');
+        const { data: platformSettings } = await api.get('/platform-settings');
 
-        const { data: payments } = await api.get('/payments'); // this fetches MY payments. Admin needs ALL.
-        // I won't implement full stats right now to save time.
+        setDoctorEarnings(earningsData || []);
+        setAdminPayments((payments || []) as AdminPaymentRecord[]);
+        const nextPlatformFee = Number(platformSettings?.platform_fee || 0);
+        setPlatformFee(nextPlatformFee);
+        setPlatformFeeInput(String(nextPlatformFee));
+
+        const totalRevenue = (payments || []).reduce(
+          (sum: number, payment: any) => sum + Number(payment.amount || 0),
+          0
+        );
+
+        const pendingSettlementPayments = (payments || []).filter(
+          (payment: any) => payment.settlement_status !== 'settled'
+        ).length;
 
         setPaymentStats({
-          totalRevenue: 0, // Placeholder
-          totalAppointments: 0,
-          completedPayments: 0,
-          pendingPayments: 0,
+          totalRevenue,
+          totalAppointments: payments?.length || 0,
+          completedPayments: payments?.length || 0,
+          pendingPayments: pendingSettlementPayments,
         });
 
       } catch (error) {
@@ -133,12 +208,82 @@ export default function AdminDashboard() {
     }
   }, [isLoading, isAuthenticated, role]);
 
+  const fetchEarningsOnly = async () => {
+    const { data: earningsData } = await api.get('/payments/admin/doctor-earnings');
+    const { data: payments } = await api.get('/payments/admin/all');
+
+    setDoctorEarnings(earningsData || []);
+    setAdminPayments((payments || []) as AdminPaymentRecord[]);
+    const totalRevenue = (payments || []).reduce(
+      (sum: number, payment: any) => sum + Number(payment.amount || 0),
+      0
+    );
+    const pendingSettlementPayments = (payments || []).filter(
+      (payment: any) => payment.settlement_status !== 'settled'
+    ).length;
+
+    setPaymentStats({
+      totalRevenue,
+      totalAppointments: payments?.length || 0,
+      completedPayments: payments?.length || 0,
+      pendingPayments: pendingSettlementPayments,
+    });
+  };
+
+  const openSettleDialog = (doctor: DoctorEarningSummary) => {
+    if (doctor.unsettled_payments === 0) {
+      toast.info("No unsettled earnings for this doctor");
+      return;
+    }
+
+    setSelectedEarning(doctor);
+    setSettlementAmountInput(String(doctor.unsettled_earnings || ""));
+    setSettlementNoteInput("");
+    setShowSettleDialog(true);
+  };
+
+  const openHistoryDialog = (doctor: DoctorEarningSummary) => {
+    setHistoryDoctor(doctor);
+    setShowHistoryDialog(true);
+  };
+
+  const handleSettleDoctor = async () => {
+    if (!selectedEarning) return;
+
+    const requestedAmount = Number(settlementAmountInput);
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      toast.error("Enter a valid settlement amount");
+      return;
+    }
+
+    setSettlingDoctorId(selectedEarning.doctor_id);
+    try {
+      const { data } = await api.patch(`/payments/admin/settle-doctor/${selectedEarning.doctor_id}`, {
+        settlement_amount: requestedAmount,
+        notes: settlementNoteInput,
+      });
+
+      toast.success(
+        `${selectedEarning.doctor_name} settled ₹${data?.settled_amount || 0}. Left ₹${data?.remaining_unsettled_amount || 0}`
+      );
+      setShowSettleDialog(false);
+      setSelectedEarning(null);
+      setSettlementAmountInput("");
+      setSettlementNoteInput("");
+      await fetchEarningsOnly();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to settle doctor earnings");
+    } finally {
+      setSettlingDoctorId(null);
+    }
+  };
+
   const handleApprove = async (doctor: DoctorApplication) => {
     setProcessing(true);
     try {
       await api.put(`/doctors/${doctor.id}`, {
         is_verified: true,
-        verification_status: "approved",
+        verification_status: "verified",
         // verified_at: new Date(),
         // verified_by: user?.id,
       });
@@ -149,7 +294,7 @@ export default function AdminDashboard() {
       setDoctors((prev) =>
         prev.map((d) =>
           d.id === doctor.id
-            ? { ...d, is_verified: true, verification_status: "approved" }
+            ? { ...d, is_verified: true, verification_status: "verified" }
             : d
         )
       );
@@ -216,9 +361,156 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSavePlatformFee = async () => {
+    const nextFee = Number(platformFeeInput);
+    if (!Number.isFinite(nextFee) || nextFee < 0) {
+      toast.error("Enter a valid non-negative platform fee");
+      return;
+    }
+
+    setSavingPlatformFee(true);
+    try {
+      const { data } = await api.patch('/platform-settings', {
+        platform_fee: Number(nextFee.toFixed(2)),
+      });
+
+      const savedFee = Number(data?.platform_fee || 0);
+      setPlatformFee(savedFee);
+      setPlatformFeeInput(String(savedFee));
+      toast.success(`Platform fee updated to ₹${savedFee}`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update platform fee");
+    } finally {
+      setSavingPlatformFee(false);
+    }
+  };
+
   const pendingDoctors = doctors.filter((d) => d.verification_status === "pending");
-  const approvedDoctors = doctors.filter((d) => d.verification_status === "approved");
+  const approvedDoctors = doctors.filter(
+    (d) => d.verification_status === "approved" || d.verification_status === "verified"
+  );
   const rejectedDoctors = doctors.filter((d) => d.verification_status === "rejected");
+
+  const getPaymentFilterDate = (payment: AdminPaymentRecord) => {
+    const sourceDate = payment.settled_at || payment.createdAt;
+    if (!sourceDate) return "";
+    const parsed = new Date(sourceDate);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return format(parsed, "yyyy-MM-dd");
+  };
+
+  const filteredSettlementPayments = adminPayments.filter((payment) => {
+    if (settlementStatusFilter !== "all" && payment.settlement_status !== settlementStatusFilter) {
+      return false;
+    }
+
+    const paymentDate = getPaymentFilterDate(payment);
+
+    if (settlementFrom && paymentDate && paymentDate < settlementFrom) {
+      return false;
+    }
+
+    if (settlementTo && paymentDate && paymentDate > settlementTo) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const exportSettlementCsv = () => {
+    if (filteredSettlementPayments.length === 0) {
+      toast.info("No settlement records to export");
+      return;
+    }
+
+    const headers = [
+      "payment_id",
+      "doctor_name",
+      "patient_name",
+      "appointment_date",
+      "appointment_time",
+      "amount",
+      "settlement_status",
+      "settlement_notes",
+      "settled_at",
+      "created_at",
+    ];
+
+    const rows = filteredSettlementPayments.map((payment) => {
+      const doctorName = payment.appointment_id?.doctor_id?.user_id?.full_name || "Doctor";
+      const patientName =
+        payment.appointment_id?.patient_id?.full_name || payment.patient_id?.full_name || "Patient";
+
+      return [
+        payment._id,
+        doctorName,
+        patientName,
+        payment.appointment_id?.appointment_date || "",
+        payment.appointment_id?.appointment_time || "",
+        String(payment.amount || 0),
+        payment.settlement_status || "unsettled",
+        payment.settlement_notes || "",
+        payment.settled_at || "",
+        payment.createdAt || "",
+      ];
+    });
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell || "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `settlements_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const doctorSettlementHistory: SettlementHistoryGroup[] = historyDoctor
+    ? (() => {
+      const grouped = new Map<string, SettlementHistoryGroup>();
+
+      adminPayments
+        .filter((payment) => {
+          const doctorId = payment.appointment_id?.doctor_id?._id;
+          return (
+            doctorId &&
+            doctorId.toString() === historyDoctor.doctor_id.toString() &&
+            Boolean(payment.settled_at) &&
+            Number(payment.last_settlement_amount || payment.settled_amount || 0) > 0
+          );
+        })
+        .forEach((payment) => {
+          const settledAt = payment.settled_at || null;
+          const note = (payment.settlement_notes || "").trim();
+          const key = `${settledAt || "unknown"}__${note}`;
+
+          if (!grouped.has(key)) {
+            grouped.set(key, {
+              settlement_key: key,
+              total_amount: 0,
+              settled_at: settledAt,
+              settlement_notes: note,
+              settled_payments_count: 0,
+            });
+          }
+
+          const item = grouped.get(key)!;
+          item.total_amount += Number(payment.last_settlement_amount || payment.settled_amount || payment.amount || 0);
+          item.settled_payments_count += 1;
+        });
+
+      return Array.from(grouped.values()).sort((a, b) => {
+        const aTime = new Date(a.settled_at || 0).getTime();
+        const bTime = new Date(b.settled_at || 0).getTime();
+        return bTime - aTime;
+      });
+    })()
+    : [];
 
   if (isLoading || loadingDoctors) {
     return (
@@ -393,7 +685,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{paymentStats.totalAppointments}</p>
-                  <p className="text-sm text-muted-foreground">Total Appointments</p>
+                  <p className="text-sm text-muted-foreground">Completed Payments</p>
                 </div>
               </div>
             </CardContent>
@@ -427,6 +719,14 @@ export default function AdminDashboard() {
             <TabsTrigger value="rejected" className="gap-2">
               <XCircle className="h-4 w-4" />
               Rejected ({rejectedDoctors.length})
+            </TabsTrigger>
+            <TabsTrigger value="settlements" className="gap-2">
+              <IndianRupee className="h-4 w-4" />
+              Settlements
+            </TabsTrigger>
+            <TabsTrigger value="platform-fee" className="gap-2">
+              <IndianRupee className="h-4 w-4" />
+              Platform Fee
             </TabsTrigger>
           </TabsList>
 
@@ -480,6 +780,163 @@ export default function AdminDashboard() {
               </div>
             )}
           </TabsContent>
+
+          <TabsContent value="settlements" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Doctor Earnings Settlement</CardTitle>
+                <CardDescription>Manual settlements by admin</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {doctorEarnings.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No doctor earnings found yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {doctorEarnings.map((earning) => (
+                      <div
+                        key={earning.doctor_id}
+                        className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border rounded-lg"
+                      >
+                        <div>
+                          <p className="font-semibold">{earning.doctor_name}</p>
+                          <p className="text-sm text-muted-foreground">{earning.doctor_email || "No email"}</p>
+                          <div className="flex flex-wrap gap-2 mt-2 text-xs">
+                            <Badge variant="outline">Total: ₹{earning.total_earnings}</Badge>
+                            <Badge variant="outline">Settled: ₹{earning.settled_earnings}</Badge>
+                            <Badge variant={earning.unsettled_earnings > 0 ? "destructive" : "secondary"}>
+                              Unsettled: ₹{earning.unsettled_earnings}
+                            </Badge>
+                            <Badge variant="outline">Normal: {earning.normal_appointments || 0}</Badge>
+                            <Badge variant="outline">Emergency: {earning.emergency_appointments || 0}</Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => openHistoryDialog(earning)}
+                          >
+                            History
+                          </Button>
+                          <Button
+                            onClick={() => openSettleDialog(earning)}
+                            disabled={earning.unsettled_payments === 0 || settlingDoctorId === earning.doctor_id}
+                          >
+                            {settlingDoctorId === earning.doctor_id ? "Settling..." : "Settle Earnings"}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Settlement Ledger</CardTitle>
+                <CardDescription>Filter by date and export records for accounting</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col md:flex-row gap-3 mb-4">
+                  <input
+                    type="date"
+                    value={settlementFrom}
+                    onChange={(e) => setSettlementFrom(e.target.value)}
+                    className="border rounded-md px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={settlementTo}
+                    onChange={(e) => setSettlementTo(e.target.value)}
+                    className="border rounded-md px-3 py-2 text-sm"
+                  />
+                  <select
+                    value={settlementStatusFilter}
+                    onChange={(e) => setSettlementStatusFilter(e.target.value as "all" | "settled" | "unsettled")}
+                    className="border rounded-md px-3 py-2 text-sm"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="settled">Settled</option>
+                    <option value="unsettled">Unsettled</option>
+                  </select>
+                  <Button variant="outline" onClick={exportSettlementCsv}>
+                    <Download className="h-4 w-4 mr-1" />
+                    Export CSV
+                  </Button>
+                </div>
+
+                {filteredSettlementPayments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No payments found for selected filters.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredSettlementPayments.map((payment) => {
+                      const doctorName = payment.appointment_id?.doctor_id?.user_id?.full_name || "Doctor";
+                      const patientName =
+                        payment.appointment_id?.patient_id?.full_name || payment.patient_id?.full_name || "Patient";
+
+                      return (
+                        <div key={payment._id} className="border rounded-md p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                          <div>
+                            <p className="font-medium">{doctorName} • {patientName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Appointment: {payment.appointment_id?.appointment_date || "-"} {payment.appointment_id?.appointment_time || ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Created: {payment.createdAt ? format(new Date(payment.createdAt), "MMM d, yyyy") : "-"}
+                              {payment.settled_at ? ` • Settled: ${format(new Date(payment.settled_at), "MMM d, yyyy")}` : ""}
+                            </p>
+                            {payment.settlement_notes ? (
+                              <p className="text-xs text-muted-foreground">Note: {payment.settlement_notes}</p>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">₹{payment.amount || 0}</Badge>
+                            <Badge variant={payment.settlement_status === "settled" ? "secondary" : "destructive"}>
+                              {payment.settlement_status}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="platform-fee" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Platform Fee Settings</CardTitle>
+                <CardDescription>
+                  Set the fixed platform fee added to every patient checkout.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-full max-w-xs">
+                    <label className="text-sm font-medium">Platform Fee (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={platformFeeInput}
+                      onChange={(e) => setPlatformFeeInput(e.target.value)}
+                      className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                      placeholder="Enter platform fee"
+                    />
+                  </div>
+                  <Button className="mt-6" onClick={handleSavePlatformFee} disabled={savingPlatformFee}>
+                    {savingPlatformFee ? "Saving..." : "Save Fee"}
+                  </Button>
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  Current platform fee: ₹{platformFee}
+                </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -528,6 +985,94 @@ export default function AdminDashboard() {
               Remove Doctor
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSettleDialog} onOpenChange={setShowSettleDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Settle Doctor Earnings</DialogTitle>
+            <DialogDescription>
+              {selectedEarning?.doctor_name || "Doctor"} • Unsettled ₹{selectedEarning?.unsettled_earnings || 0}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Settlement Amount</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={settlementAmountInput}
+                onChange={(e) => setSettlementAmountInput(e.target.value)}
+                className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                placeholder="Enter amount paid"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Admin Note</label>
+              <Textarea
+                value={settlementNoteInput}
+                onChange={(e) => setSettlementNoteInput(e.target.value)}
+                placeholder="Add note for this manual settlement"
+                className="min-h-[90px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSettleDialog(false);
+                setSelectedEarning(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSettleDoctor}
+              disabled={!selectedEarning || settlingDoctorId === selectedEarning.doctor_id}
+            >
+              {selectedEarning && settlingDoctorId === selectedEarning.doctor_id ? "Settling..." : "Confirm Settlement"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Settlement History</DialogTitle>
+            <DialogDescription>
+              {historyDoctor?.doctor_name || "Doctor"} settlement notes
+            </DialogDescription>
+          </DialogHeader>
+
+          {doctorSettlementHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No settled records found.</p>
+          ) : (
+            <div className="space-y-3 max-h-[420px] overflow-y-auto">
+              {doctorSettlementHistory.map((settlement) => (
+                <div key={settlement.settlement_key} className="border rounded-md p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-medium">₹{settlement.total_amount || 0}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {settlement.settled_at ? format(new Date(settlement.settled_at), "MMM d, yyyy") : "-"}
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Settled payments: {settlement.settled_payments_count}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Admin Note:</span> {settlement.settlement_notes || "No note provided"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </MainLayout>

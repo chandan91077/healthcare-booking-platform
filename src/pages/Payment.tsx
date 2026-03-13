@@ -26,6 +26,8 @@ interface AppointmentDetails {
   appointment_time: string;
   appointment_type: string;
   amount: number;
+  doctor_fee?: number;
+  platform_fee?: number;
   status: string;
   payment_status: string;
   doctor: {
@@ -45,6 +47,7 @@ export default function Payment() {
   const [appointment, setAppointment] = useState<AppointmentDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -126,6 +129,37 @@ export default function Payment() {
     }
   }, [appointmentId, user, authLoading, navigate]);
 
+  useEffect(() => {
+    async function verifyCashfreeReturn() {
+      if (!appointmentId || !isAuthenticated || authLoading) return;
+
+      const searchParams = new URLSearchParams(window.location.search);
+      const cashfreeOrderId = searchParams.get("cashfree_order_id") || searchParams.get("order_id");
+      if (!cashfreeOrderId) return;
+
+      setVerifyingPayment(true);
+      try {
+        await api.post('/payments/cashfree/verify', {
+          appointment_id: appointmentId,
+          order_id: cashfreeOrderId,
+        });
+
+        toast.success("Payment successful! Your appointment is confirmed.");
+        navigate("/appointments");
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || "Payment verification failed");
+      } finally {
+        setVerifyingPayment(false);
+      }
+    }
+
+    verifyCashfreeReturn();
+  }, [appointmentId, isAuthenticated, authLoading, navigate]);
+
+  const doctorFee = Number(appointment?.doctor_fee ?? appointment?.amount ?? 0);
+  const platformFee = Number(appointment?.platform_fee ?? 0);
+  const totalAmount = Number(appointment?.amount ?? 0);
+
   const handlePayment = async () => {
     const userId = user?._id || user?.id;
     if (!appointment || !userId) {
@@ -136,13 +170,7 @@ export default function Payment() {
     setProcessing(true);
 
     try {
-      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
-
-      if (!razorpayKey) {
-        throw new Error("Razorpay Key ID missing in environment variables");
-      }
-
-      // Load Razorpay script dynamically
+      // Load Cashfree script dynamically
       const loadScript = (src: string) => {
         return new Promise((resolve) => {
           const script = document.createElement("script");
@@ -153,53 +181,28 @@ export default function Payment() {
         });
       };
 
-      const res = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
+      const res = await loadScript("https://sdk.cashfree.com/js/v3/cashfree.js");
 
       if (!res) {
-        toast.error("Razorpay SDK failed to load. Are you online?");
+        toast.error("Cashfree SDK failed to load. Are you online?");
         setProcessing(false);
         return;
       }
 
-      const options = {
-        key: razorpayKey,
-        amount: appointment.amount * 100, // amount in the smallest currency unit (paise)
-        currency: "INR",
-        name: "HealthLink Connect",
-        description: `Appointment with Dr. ${appointment.doctor?.profile?.full_name}`,
-        image: "/logo.png",
-        handler: async function (response: any) {
-          try {
-            // Verify payment on backend
-            await api.post('/payments', {
-              appointment_id: appointment.id,
-              amount: appointment.amount,
-              razorpay_order_id: response.razorpay_order_id || `sim_${Date.now()}`,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-
-            toast.success("Payment successful! Your appointment is confirmed.");
-            navigate("/appointments");
-          } catch (error: any) {
-            toast.error(error.response?.data?.message || "Payment verification failed");
-          }
-        },
-        prefill: {
-          name: user?.full_name || "",
-          email: user?.email || "",
-          contact: user?.phone || ""
-        },
-        theme: {
-          color: "#0D9488",
-        },
-      };
-
-      const rzp1 = new (window as any).Razorpay(options);
-      rzp1.on('payment.failed', function (response: any) {
-        toast.error(response.error.description || "Payment failed");
+      const { data } = await api.post('/payments/cashfree/order', {
+        appointment_id: appointment.id,
       });
-      rzp1.open();
+
+      const Cashfree = (window as any).Cashfree;
+      if (!Cashfree) {
+        throw new Error("Cashfree SDK is unavailable");
+      }
+
+      const cashfree = Cashfree({ mode: data?.cashfree_env || "sandbox" });
+      await cashfree.checkout({
+        paymentSessionId: data.payment_session_id,
+        redirectTarget: "_self",
+      });
     } catch (error: any) {
       console.error("Payment error:", error);
       toast.error(error.message || "Something went wrong with the payment");
@@ -221,7 +224,7 @@ export default function Payment() {
       // Use simulated IDs so backend records the payment and confirms the appointment
       await api.post('/payments', {
         appointment_id: appointment.id,
-        amount: appointment.amount,
+        amount: totalAmount,
         razorpay_order_id: `sim_${Date.now()}`,
         razorpay_payment_id: `sim_pay_${Date.now()}`,
       });
@@ -304,17 +307,17 @@ export default function Payment() {
             <div className="border rounded-lg p-4 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Consultation Fee</span>
-                <span>₹{appointment.amount}</span>
+                <span>₹{doctorFee}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Platform Fee</span>
-                <span>₹0</span>
+                <span>₹{platformFee}</span>
               </div>
               <div className="border-t pt-3 flex justify-between font-heading">
                 <span className="font-semibold">Total</span>
                 <span className="text-xl font-bold flex items-center">
                   <IndianRupee className="h-5 w-5" />
-                  {appointment.amount}
+                  {totalAmount}
                 </span>
               </div>
             </div>
@@ -330,14 +333,14 @@ export default function Payment() {
               className="w-full gradient-primary border-0"
               size="lg"
               onClick={handlePayment}
-              disabled={processing}
+              disabled={processing || verifyingPayment}
             >
-              {processing ? (
-                "Processing..."
+              {processing || verifyingPayment ? (
+                verifyingPayment ? "Verifying payment..." : "Processing..."
               ) : (
                 <>
                   <CreditCard className="mr-2 h-5 w-5" />
-                  Pay ₹{appointment.amount}
+                  Pay ₹{totalAmount}
                 </>
               )}
             </Button>

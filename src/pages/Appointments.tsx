@@ -37,6 +37,9 @@ interface Appointment {
   chat_unlocked: boolean;
   video_unlocked: boolean;
   zoom_join_url: string | null;
+  meeting_provider?: string;
+  meeting_time?: string | null;
+  notes?: string;
   video: {
     provider: string;
     meetingId: string;
@@ -64,11 +67,50 @@ export default function Appointments() {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
   // Notifications for patient (e.g., preempted by emergency)
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showPreemptedDialog, setShowPreemptedDialog] = useState(false);
   const [activePreempted, setActivePreempted] = useState<any | null>(null);
+
+  const mapAppointment = (appt: any): Appointment => ({
+    ...appt,
+    id: appt._id,
+    doctor: appt.doctor_id ? {
+      id: appt.doctor_id._id,
+      specialization: appt.doctor_id.specialization,
+      profile: { full_name: "Dr. " + (appt.doctor_id.user_id?.full_name || "Unknown") }
+    } : null,
+    patient: appt.patient_id ? {
+      full_name: appt.patient_id.full_name
+    } : null
+  });
+
+  const refreshAppointments = async () => {
+    const { data } = await api.get('/appointments');
+    setAppointments(data.map(mapAppointment));
+  };
+
+  const handleUpdateStatus = async (appointmentId: string, status: string) => {
+    try {
+      setUpdatingStatusId(appointmentId);
+      await api.put(`/appointments/${appointmentId}`, { status });
+      await refreshAppointments();
+      toast({
+        title: status === 'completed' ? 'Appointment marked as done' : `Appointment ${status}`,
+      });
+    } catch (error: any) {
+      console.error('Error updating appointment status', error);
+      toast({
+        title: 'Failed to update appointment',
+        description: error.response?.data?.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -82,21 +124,7 @@ export default function Appointments() {
 
       try {
         const { data } = await api.get('/appointments');
-
-        const mappedAppointments = data.map((appt: any) => ({
-          ...appt,
-          id: appt._id,
-          doctor: appt.doctor_id ? {
-            id: appt.doctor_id._id,
-            specialization: appt.doctor_id.specialization,
-            profile: { full_name: "Dr. " + (appt.doctor_id.user_id?.full_name || "Unknown") }
-          } : null,
-          patient: appt.patient_id ? {
-            full_name: appt.patient_id.full_name
-          } : null
-        }));
-
-        setAppointments(mappedAppointments);
+        setAppointments(data.map(mapAppointment));
 
         // Fetch notifications and show any unread preempted notifications (patient-facing)
         try {
@@ -112,7 +140,7 @@ export default function Appointments() {
           // show video link notifications as a toast for quick access
           const firstVideo = notifs && notifs.find((n: any) => n.type === 'video_link' && !n.read);
           if (firstVideo) {
-            toast.info(firstVideo.message);
+            toast({ title: firstVideo.message });
             // leave it unread so user can view/ack later
             setNotifications(notifs);
           }
@@ -172,23 +200,11 @@ export default function Appointments() {
       try {
         setLoading(true);
         await api.put(`/appointments/${appointment.id}/permissions`, { video_unlocked: true, zoom_join_url: zoomLink || undefined, auto_send: !!send, meeting_provider: provider, meeting_time: scheduledAt });
-        toast.success(send ? 'Video enabled and link sent' : 'Video enabled');
-        // refetch appointments
-        const { data } = await api.get('/appointments');
-        const mappedAppointments = data.map((appt: any) => ({
-          ...appt,
-          id: appt._id,
-          doctor: appt.doctor_id ? {
-            id: appt.doctor_id._id,
-            specialization: appt.doctor_id.specialization,
-            profile: { full_name: "Dr. " + (appt.doctor_id.user_id?.full_name || "Unknown") }
-          } : null,
-          patient: appt.patient_id ? { full_name: appt.patient_id.full_name } : null
-        }));
-        setAppointments(mappedAppointments);
+        toast({ title: send ? 'Video enabled and link sent' : 'Video enabled' });
+        await refreshAppointments();
       } catch (err) {
         console.error('Error enabling video', err);
-        toast.error('Failed to enable video');
+        toast({ title: 'Failed to enable video', variant: 'destructive' });
       } finally {
         setLoading(false);
       }
@@ -222,11 +238,13 @@ export default function Appointments() {
 
   const AppointmentCard = ({ appointment }: { appointment: Appointment }) => {
     const appointmentDate = new Date(appointment.appointment_date);
+    const appointmentId = appointment._id || appointment.id;
     // Allow doctors to access chat even if payment is pending; patient access still requires paid/confirmed/emergency
     const canAccessChat = appointment.chat_unlocked && (role === 'doctor' || appointment.payment_status === "paid" || appointment.status === 'confirmed' || appointment.appointment_type === 'emergency');
     const canAccessVideo = appointment.video_unlocked && (appointment.payment_status === "paid" || appointment.status === 'confirmed' || appointment.appointment_type === 'emergency');
     const isDoctor = role === "doctor";
     const canPrescribe = isDoctor && (appointment.status === "confirmed" || appointment.status === "completed");
+    const canMarkDone = isDoctor && appointment.status === 'confirmed';
 
     // show a visual marker if this appointment was preempted by an emergency (notes contain it)
     const wasPreempted = appointment.status === 'cancelled' && appointment.notes && appointment.notes.includes('Preempted by emergency');
@@ -286,9 +304,19 @@ export default function Appointments() {
                 <Link to={`/payment/${appointment.id}`}>Complete Payment</Link>
               </Button>
             )}
+            {canMarkDone && (
+              <Button
+                size="sm"
+                className="bg-success hover:bg-success/90"
+                onClick={() => handleUpdateStatus(appointmentId, 'completed')}
+                disabled={updatingStatusId === appointmentId}
+              >
+                {updatingStatusId === appointmentId ? 'Marking...' : 'Mark as Done'}
+              </Button>
+            )}
             {canAccessChat && (
               <Button size="sm" variant="outline" asChild>
-                <Link to={`/chat/${appointment._id || appointment.id}`}>
+                <Link to={`/chat/${appointmentId}`}>
                   <MessageSquare className="h-4 w-4 mr-1" />
                   Chat
                 </Link>
@@ -317,53 +345,30 @@ export default function Appointments() {
                 {!appointment.chat_unlocked ? (
                   <Button size="sm" variant="secondary" onClick={async () => {
                     try {
-                      await api.put(`/appointments/${appointment._id || appointment.id}/permissions`, { chat_unlocked: true });
-                      toast.success('Chat enabled for this appointment');
-                      // refetch appointments
-                      const { data } = await api.get('/appointments');
-                      const mappedAppointments = data.map((appt: any) => ({
-                        ...appt,
-                        id: appt._id,
-                        doctor: appt.doctor_id ? {
-                          id: appt.doctor_id._id,
-                          specialization: appt.doctor_id.specialization,
-                          profile: { full_name: "Dr. " + (appt.doctor_id.user_id?.full_name || "Unknown") }
-                        } : null,
-                        patient: appt.patient_id ? { full_name: appt.patient_id.full_name } : null
-                      }));
-                      setAppointments(mappedAppointments);
+                      await api.put(`/appointments/${appointmentId}/permissions`, { chat_unlocked: true });
+                      toast({ title: 'Chat enabled for this appointment' });
+                      await refreshAppointments();
                     } catch (err) {
                       console.error('Error enabling chat', err);
-                      toast.error('Failed to enable chat');
+                      toast({ title: 'Failed to enable chat', variant: 'destructive' });
                     }
                   }}>Enable Chat</Button>
                 ) : (
                   <>
                     <Button size="sm" variant="outline" asChild>
-                      <Link to={`/chat/${appointment._id || appointment.id}`}>
+                      <Link to={`/chat/${appointmentId}`}>
                         <MessageSquare className="h-4 w-4 mr-1" />
                         Chat
                       </Link>
                     </Button>
                     <Button size="sm" variant="destructive" onClick={async () => {
                       try {
-                        await api.put(`/appointments/${appointment._id || appointment.id}/permissions`, { chat_unlocked: false });
-                        toast.success('Chat disabled for this appointment');
-                        const { data } = await api.get('/appointments');
-                        const mappedAppointments = data.map((appt: any) => ({
-                          ...appt,
-                          id: appt._id,
-                          doctor: appt.doctor_id ? {
-                            id: appt.doctor_id._id,
-                            specialization: appt.doctor_id.specialization,
-                            profile: { full_name: "Dr. " + (appt.doctor_id.user_id?.full_name || "Unknown") }
-                          } : null,
-                          patient: appt.patient_id ? { full_name: appt.patient_id.full_name } : null
-                        }));
-                        setAppointments(mappedAppointments);
+                        await api.put(`/appointments/${appointmentId}/permissions`, { chat_unlocked: false });
+                        toast({ title: 'Chat disabled for this appointment' });
+                        await refreshAppointments();
                       } catch (err) {
                         console.error('Error disabling chat', err);
-                        toast.error('Failed to disable chat');
+                        toast({ title: 'Failed to disable chat', variant: 'destructive' });
                       }
                     }}>Disable Chat</Button>
                   </>

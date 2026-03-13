@@ -8,6 +8,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { PrescriptionModal } from "@/components/PrescriptionModal";
 import { PatientHistoryModal } from "@/components/PatientHistoryModal";
 import { DoctorAvailability } from "@/components/DoctorAvailability";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,12 +72,31 @@ interface Appointment {
     patientJoinUrl: string;
     enabled: boolean;
     enabledAt: string | null;
+    doctorInCall?: boolean;
   };
   patient: {
     _id: string;
     full_name: string;
     email: string;
   } | null;
+}
+
+interface SettlementHistoryItem {
+  payment_id: string;
+  amount: number;
+  settled_at: string | null;
+  settlement_notes?: string;
+  appointment_id?: string;
+  appointment_date?: string | null;
+  appointment_time?: string | null;
+}
+
+interface SettlementHistoryGroup {
+  settlement_key: string;
+  total_amount: number;
+  settled_at: string | null;
+  settlement_notes: string;
+  settled_payments_count: number;
 }
 
 export default function DoctorDashboard() {
@@ -94,6 +114,14 @@ export default function DoctorDashboard() {
     totalEarnings: 0,
     totalPatients: 0,
   });
+  const [earningsSummary, setEarningsSummary] = useState({
+    settledEarnings: 0,
+    unsettledEarnings: 0,
+    settledPayments: 0,
+    unsettledPayments: 0,
+  });
+  const [settlementHistory, setSettlementHistory] = useState<SettlementHistoryItem[]>([]);
+  const [showSettlementHistory, setShowSettlementHistory] = useState(false);
 
   const fetchDoctorDashboardData = async () => {
     if (user?.id || user?._id) {
@@ -114,6 +142,7 @@ export default function DoctorDashboard() {
       if (data.is_verified) {
         try {
           const { data: appointmentsData } = await api.get('/appointments');
+          const { data: doctorPaymentSummary } = await api.get('/payments/doctor/summary');
           const mappedAppointments = appointmentsData.map((appt: any) => ({
             ...appt,
             id: appt._id,
@@ -133,12 +162,18 @@ export default function DoctorDashboard() {
           const pendingAppts = mappedAppointments.filter(
             (a: any) => a.status === "pending"
           );
-          const completedAppts = mappedAppointments.filter(
-            (a: any) => a.status === "completed" || a.payment_status === "completed"
-          );
+          const completedAppts = mappedAppointments.filter((a: any) => a.status === "completed");
 
           const uniquePatients = new Set(completedAppts.map((a: any) => a.patient?._id).filter(Boolean));
-          const totalEarnings = completedAppts.reduce((sum: number, a: any) => sum + (a.amount || 0), 0);
+          const totalEarnings = Number(doctorPaymentSummary?.gross_earnings || 0);
+
+          setEarningsSummary({
+            settledEarnings: Number(doctorPaymentSummary?.settled_earnings || 0),
+            unsettledEarnings: Number(doctorPaymentSummary?.unsettled_earnings || 0),
+            settledPayments: Number(doctorPaymentSummary?.settled_payments || 0),
+            unsettledPayments: Number(doctorPaymentSummary?.unsettled_payments || 0),
+          });
+          setSettlementHistory((doctorPaymentSummary?.recent_settlements || []) as SettlementHistoryItem[]);
 
           setStats({
             todayCount: todayAppts.length,
@@ -324,6 +359,36 @@ export default function DoctorDashboard() {
     (a) => isFuture(new Date(a.appointment_date)) && a.status === "confirmed"
   );
 
+  const groupedSettlementHistory: SettlementHistoryGroup[] = (() => {
+    const grouped = new Map<string, SettlementHistoryGroup>();
+
+    settlementHistory.forEach((item) => {
+      const settledAt = item.settled_at || null;
+      const note = (item.settlement_notes || "").trim();
+      const key = `${settledAt || "unknown"}__${note}`;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          settlement_key: key,
+          total_amount: 0,
+          settled_at: settledAt,
+          settlement_notes: note,
+          settled_payments_count: 0,
+        });
+      }
+
+      const historyRow = grouped.get(key)!;
+      historyRow.total_amount += Number(item.amount || 0);
+      historyRow.settled_payments_count += 1;
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => {
+      const aTime = new Date(a.settled_at || 0).getTime();
+      const bTime = new Date(b.settled_at || 0).getTime();
+      return bTime - aTime;
+    });
+  })();
+
   return (
     <MainLayout>
       <div className="container py-8">
@@ -417,6 +482,17 @@ export default function DoctorDashboard() {
                 <div>
                   <p className="text-2xl font-bold">₹{stats.totalEarnings}</p>
                   <p className="text-sm text-muted-foreground">Earnings</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Settled ₹{earningsSummary.settledEarnings} • Unsettled ₹{earningsSummary.unsettledEarnings}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-2"
+                    onClick={() => setShowSettlementHistory(true)}
+                  >
+                    Settlement History
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -484,6 +560,14 @@ export default function DoctorDashboard() {
                       )}
                       {appt.status === 'confirmed' && (
                         <>
+                          <Button
+                            size="sm"
+                            className="bg-success hover:bg-success/90"
+                            onClick={() => handleUpdateStatus(appt._id, 'completed')}
+                          >
+                            Mark as Done
+                          </Button>
+
                           <PrescriptionModal
                             appointmentId={appt._id}
                             patientId={appt.patient_id}
@@ -720,15 +804,233 @@ export default function DoctorDashboard() {
                         <AvatarFallback>{appt.patient?.full_name?.charAt(0) || "P"}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">{appt.patient?.full_name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{appt.patient?.full_name}</p>
+                          {appt.patient?._id && (
+                            <PatientHistoryModal
+                              patientId={appt.patient._id}
+                              patientName={appt.patient.full_name}
+                            />
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           {format(new Date(appt.appointment_date), "MMM d")} at {appt.appointment_time.slice(0, 5)}
                         </p>
                       </div>
                     </div>
-                    <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"}>
-                      {appt.appointment_type}
-                    </Badge>
+
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"}>
+                        {appt.appointment_type}
+                      </Badge>
+
+                      <Button
+                        size="sm"
+                        className="bg-success hover:bg-success/90"
+                        onClick={() => handleUpdateStatus(appt._id, 'completed')}
+                      >
+                        Mark as Done
+                      </Button>
+
+                      {!appt.chat_unlocked ? (
+                        <Button size="sm" variant="secondary" onClick={async () => {
+                          try {
+                            await api.put(`/appointments/${appt._id}/permissions`, { chat_unlocked: true });
+                            toast.success('Chat enabled for this appointment');
+                            const { data } = await api.get('/appointments');
+                            const mappedAppointments = data.map((appt: any) => ({
+                              ...appt,
+                              id: appt._id,
+                              patient: appt.patient_id ? {
+                                _id: appt.patient_id._id,
+                                full_name: appt.patient_id.full_name,
+                                email: appt.patient_id.email
+                              } : null
+                            }));
+                            setAppointments(mappedAppointments);
+                          } catch (err) {
+                            console.error('Error enabling chat', err);
+                            toast.error('Failed to enable chat');
+                          }
+                        }}>Enable Chat</Button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" asChild>
+                            <Link to={`/chat/${appt._id || appt.id}`}>
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              Chat
+                            </Link>
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={async () => {
+                            try {
+                              await api.put(`/appointments/${appt._id}/permissions`, { chat_unlocked: false });
+                              toast.success('Chat disabled for this appointment');
+                              const { data } = await api.get('/appointments');
+                              const mappedAppointments = data.map((appt: any) => ({
+                                ...appt,
+                                id: appt._id,
+                                patient: appt.patient_id ? {
+                                  _id: appt.patient_id._id,
+                                  full_name: appt.patient_id.full_name,
+                                  email: appt.patient_id.email
+                                } : null
+                              }));
+                              setAppointments(mappedAppointments);
+                            } catch (err) {
+                              console.error('Error disabling chat', err);
+                              toast.error('Failed to disable chat');
+                            }
+                          }}>Disable Chat</Button>
+                        </div>
+                      )}
+
+                      {!appt.video?.enabled ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              await api.patch(`/appointments/${appt._id}/video-toggle`);
+                              toast.success('Video call enabled for this appointment');
+                              const { data } = await api.get('/appointments');
+                              const mappedAppointments = data.map((appt: any) => ({
+                                ...appt,
+                                id: appt._id,
+                                patient: appt.patient_id ? {
+                                  _id: appt.patient_id._id,
+                                  full_name: appt.patient_id.full_name,
+                                  email: appt.patient_id.email
+                                } : null
+                              }));
+                              setAppointments(mappedAppointments);
+                            } catch (err) {
+                              console.error('Error enabling video', err);
+                              toast.error('Failed to enable video call');
+                            }
+                          }}
+                        >
+                          <Video className="h-4 w-4 mr-1" />
+                          Enable Video
+                        </Button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          {appt.video.doctorInCall ? (
+                            <>
+                              <Button size="sm" variant="secondary" asChild>
+                                <a
+                                  href={appt.video.doctorJoinUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    window.open(appt.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
+                                  }}
+                                >
+                                  <Video className="h-4 w-4 mr-1" />
+                                  Rejoin Video
+                                </a>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  try {
+                                    await api.patch(`/appointments/${appt._id}/doctor-leave-call`);
+                                    toast.success('Left video call');
+                                    const { data } = await api.get('/appointments');
+                                    const mappedAppointments = data.map((appt: any) => ({
+                                      ...appt,
+                                      id: appt._id,
+                                      patient: appt.patient_id ? {
+                                        _id: appt.patient_id._id,
+                                        full_name: appt.patient_id.full_name,
+                                        email: appt.patient_id.email,
+                                      } : null,
+                                      doctor: appt.doctor_id ? {
+                                        _id: appt.doctor_id._id,
+                                        full_name: appt.doctor_id.user_id?.full_name || 'Doctor',
+                                      } : null,
+                                    }));
+                                    setAppointments(mappedAppointments);
+                                  } catch (error) {
+                                    console.error('Failed to leave call:', error);
+                                    toast.error('Failed to leave call');
+                                  }
+                                }}
+                              >
+                                <Video className="h-4 w-4 mr-1" />
+                                Leave Call
+                              </Button>
+                            </>
+                          ) : (
+                            <Button size="sm" asChild>
+                              <a
+                                href={appt.video.doctorJoinUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={async (e) => {
+                                  e.preventDefault();
+                                  try {
+                                    await api.patch(`/appointments/${appt._id}/doctor-join-call`);
+                                    window.open(appt.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
+                                  } catch (error) {
+                                    console.error('Failed to update call status:', error);
+                                    try {
+                                      const refreshResponse = await api.patch(`/appointments/${appt._id}/refresh-zoom-meeting`);
+                                      window.open(refreshResponse.data.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
+                                    } catch (refreshError) {
+                                      console.error('Failed to refresh meeting:', refreshError);
+                                      window.open(appt.video.doctorJoinUrl, '_blank', 'noopener,noreferrer');
+                                    }
+                                  }
+                                }}
+                              >
+                                <Video className="h-4 w-4 mr-1" />
+                                Start Video
+                              </a>
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={async () => {
+                              try {
+                                await api.patch(`/appointments/${appt._id}/video-toggle`);
+                                toast.success('Video call disabled for this appointment');
+                                const { data } = await api.get('/appointments');
+                                const mappedAppointments = data.map((appt: any) => ({
+                                  ...appt,
+                                  id: appt._id,
+                                  patient: appt.patient_id ? {
+                                    _id: appt.patient_id._id,
+                                    full_name: appt.patient_id.full_name,
+                                    email: appt.patient_id.email
+                                  } : null
+                                }));
+                                setAppointments(mappedAppointments);
+                              } catch (err) {
+                                console.error('Error disabling video', err);
+                                toast.error('Failed to disable video call');
+                              }
+                            }}
+                          >
+                            Disable Video
+                          </Button>
+                        </div>
+                      )}
+
+                      <PrescriptionModal
+                        appointmentId={appt._id}
+                        patientId={appt.patient_id}
+                        patientName={appt.patient?.full_name || "Patient"}
+                        doctorId={doctorData?._id || doctorData?.id || ""}
+                        doctorName={doctorProfile?.full_name || "Doctor"}
+                        doctorSpecialization={doctorData?.specialization || ""}
+                        onSuccess={() => {
+                          toast.success("Prescription sent to patient");
+                        }}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -759,6 +1061,40 @@ export default function DoctorDashboard() {
         {/* Availability Management */}
         {doctorData && <DoctorAvailability doctorId={doctorData._id || doctorData.id} />}
       </div>
+
+      <Dialog open={showSettlementHistory} onOpenChange={setShowSettlementHistory}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Settlement History</DialogTitle>
+            <DialogDescription>
+              Recent settlements with admin notes
+            </DialogDescription>
+          </DialogHeader>
+
+          {groupedSettlementHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No settlements yet.</p>
+          ) : (
+            <div className="space-y-3 max-h-[420px] overflow-y-auto">
+              {groupedSettlementHistory.map((item) => (
+                <div key={item.settlement_key} className="border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-medium">₹{item.total_amount || 0}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.settled_at ? format(new Date(item.settled_at), "MMM d, yyyy") : "-"}
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Settled payments: {item.settled_payments_count}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Admin Note:</span> {item.settlement_notes?.trim() || "No note provided"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }

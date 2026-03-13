@@ -2,14 +2,44 @@ const express = require('express');
 const router = express.Router();
 const Appointment = require('../models/Appointment');
 const Doctor = require('../models/Doctor');
+const PlatformSettings = require('../models/PlatformSettings');
 const User = require('../models/User');
 const path = require('path');
 const { protect } = require('../middleware/authMiddleware');
 const zoomService = require('../services/zoomService');
+const { cancelExpiredUnpaidAppointments } = require('../utils/cron-jobs');
+
+function formatDoctorName(rawName) {
+    const name = String(rawName || '').trim();
+    if (!name) {
+        return 'Doctor';
+    }
+    return /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
+}
+
+function formatPatientName(rawName) {
+    const name = String(rawName || '').trim();
+    return name || 'Patient';
+}
+
+async function findDoctorProfileForUser(userId) {
+    if (!userId) {
+        return null;
+    }
+
+    return Doctor.findOne({ user_id: userId }).populate('user_id', 'full_name');
+}
+
+async function getCurrentPlatformFee() {
+    const settings = await PlatformSettings.findOne({ key: 'global' });
+    return Number(settings?.platform_fee || 0);
+}
 
 // Get appointment by ID
 router.get('/:id', protect, async (req, res) => {
     try {
+        await cancelExpiredUnpaidAppointments();
+
         const appointment = await Appointment.findById(req.params.id)
             .populate({
                 path: 'doctor_id',
@@ -27,6 +57,8 @@ router.get('/:id', protect, async (req, res) => {
 // Get appointments for a specific doctor (optionally filtered by date)
 router.get('/doctor/:doctorId', protect, async (req, res) => {
     try {
+        await cancelExpiredUnpaidAppointments();
+
         const { doctorId } = req.params;
         const { date } = req.query;
         const query = { doctor_id: doctorId };
@@ -45,6 +77,8 @@ router.get('/doctor/:doctorId', protect, async (req, res) => {
 // Get all appointments for a user (patient or doctor)
 router.get('/', protect, async (req, res) => {
     try {
+        await cancelExpiredUnpaidAppointments();
+
         let query = {};
         const { role, _id } = req.user;
 
@@ -76,7 +110,7 @@ router.get('/', protect, async (req, res) => {
 // Create appointment (patient)
 router.post('/', protect, async (req, res) => {
     try {
-        const { doctor_id, appointment_date, appointment_time, appointment_type = 'scheduled', amount } = req.body;
+        const { doctor_id, appointment_date, appointment_time, appointment_type = 'scheduled' } = req.body;
 
         // Only patients can create appointments
         if (req.user.role !== 'patient') {
@@ -87,6 +121,12 @@ router.post('/', protect, async (req, res) => {
 
         const doctor = await Doctor.findById(doctor_id);
         if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+
+        const doctorFee = Number(
+            appointment_type === 'emergency' ? doctor.emergency_fee : doctor.consultation_fee
+        );
+        const platformFee = await getCurrentPlatformFee();
+        const totalAmount = Number((doctorFee + platformFee).toFixed(2));
 
         // For scheduled appointments, check doctor availability and slot free
         if (appointment_type !== 'emergency') {
@@ -142,7 +182,9 @@ router.post('/', protect, async (req, res) => {
             appointment_date,
             appointment_time,
             appointment_type,
-            amount,
+            amount: totalAmount,
+            doctor_fee: Number(doctorFee.toFixed(2)),
+            platform_fee: Number(platformFee.toFixed(2)),
             status: appointment_type === 'emergency' ? 'confirmed' : 'pending',
             payment_status: appointment_type === 'emergency' ? 'paid' : 'pending',
             chat_unlocked: appointment_type === 'emergency',
@@ -177,38 +219,87 @@ router.put('/:id', protect, async (req, res) => {
     try {
         const { status, payment_status, notes } = req.body;
         const appointment = await Appointment.findById(req.params.id);
-        const previousStatus = appointment?.status;
 
         if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
-        // Authorization: only the doctor assigned or the patient can update (depending on field)
-        // For status updates to 'confirmed'/'cancelled' by doctor:
-        if (status && req.user.role === 'doctor') {
-            appointment.status = status;
-            if (status === 'confirmed') {
-                appointment.chat_unlocked = true;
-                appointment.video_unlocked = true;
+        const previousStatus = appointment.status;
 
-                if (previousStatus !== 'confirmed') {
-                    const Notification = require('../models/Notification');
-                    await Notification.create({
-                        user_id: appointment.patient_id,
-                        type: 'appointment_confirmed',
-                        message: `Your appointment on ${appointment.appointment_date} at ${appointment.appointment_time} has been confirmed by doctor.`,
-                        data: {
-                            appointment_id: appointment._id,
-                            appointment_date: appointment.appointment_date,
-                            appointment_time: appointment.appointment_time,
-                        },
-                    });
+        if (typeof status !== 'undefined' && status !== null) {
+            const nextStatus = String(status).trim().toLowerCase();
+
+            if (req.user.role === 'doctor') {
+                const doctor = await findDoctorProfileForUser(req.user._id);
+                if (!doctor || doctor._id.toString() !== appointment.doctor_id.toString()) {
+                    return res.status(403).json({ message: 'Not authorized to update this appointment' });
                 }
+
+                const allowedDoctorStatuses = ['confirmed', 'completed', 'cancelled'];
+                if (!allowedDoctorStatuses.includes(nextStatus)) {
+                    return res.status(400).json({ message: 'Invalid appointment status' });
+                }
+
+                appointment.status = nextStatus;
+
+                if (nextStatus === 'confirmed') {
+                    appointment.chat_unlocked = true;
+                    appointment.video_unlocked = true;
+
+                    if (previousStatus !== 'confirmed') {
+                        const doctorName = formatDoctorName(doctor.user_id?.full_name);
+                        const Notification = require('../models/Notification');
+                        await Notification.create({
+                            user_id: appointment.patient_id,
+                            type: 'appointment_confirmed',
+                            message: `${doctorName} confirmed your appointment on ${appointment.appointment_date} at ${appointment.appointment_time}.`,
+                            data: {
+                                appointment_id: appointment._id,
+                                appointment_date: appointment.appointment_date,
+                                appointment_time: appointment.appointment_time,
+                            },
+                        });
+                    }
+                }
+
+                if (nextStatus === 'completed') {
+                    appointment.video.doctorInCall = false;
+
+                    if (previousStatus !== 'completed') {
+                        const Notification = require('../models/Notification');
+                        const doctorName = formatDoctorName(doctor.user_id?.full_name);
+                        await Notification.create({
+                            user_id: appointment.patient_id,
+                            type: 'appointment_completed',
+                            message: `${doctorName} marked your appointment on ${appointment.appointment_date} at ${appointment.appointment_time} as completed.`,
+                            data: {
+                                appointment_id: appointment._id,
+                                appointment_date: appointment.appointment_date,
+                                appointment_time: appointment.appointment_time,
+                            },
+                        });
+                        await Notification.create({
+                            user_id: doctor.user_id?._id || doctor.user_id,
+                            type: 'appointment_completed_confirmation',
+                            message: `You marked the appointment with ${formatPatientName(appointment.patient_id?.full_name)} on ${appointment.appointment_date} at ${appointment.appointment_time} as completed.`,
+                            data: {
+                                appointment_id: appointment._id,
+                                appointment_date: appointment.appointment_date,
+                                appointment_time: appointment.appointment_time,
+                            },
+                        });
+                    }
+                }
+            } else if (nextStatus === 'cancelled' && req.user.role === 'patient') {
+                if (appointment.patient_id.toString() !== req.user._id.toString()) {
+                    return res.status(403).json({ message: 'Not authorized to cancel this appointment' });
+                }
+                appointment.status = nextStatus;
+            } else {
+                return res.status(403).json({ message: 'Not authorized to update appointment status' });
             }
-        } else if (status === 'cancelled' && req.user.role === 'patient') {
-            appointment.status = status;
         }
 
-        if (payment_status) appointment.payment_status = payment_status;
-        if (notes) appointment.notes = notes;
+        if (typeof payment_status !== 'undefined') appointment.payment_status = payment_status;
+        if (typeof notes !== 'undefined') appointment.notes = notes;
 
         await appointment.save();
         res.json(appointment);
@@ -227,40 +318,41 @@ router.put('/:id/permissions', protect, async (req, res) => {
         if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
         // Only the doctor who owns this appointment can change permissions
-        const doctor = await Doctor.findById(appointment.doctor_id._id || appointment.doctor_id);
+        const doctor = await Doctor.findById(appointment.doctor_id._id || appointment.doctor_id)
+            .populate('user_id', 'full_name email locale');
         if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
-        if (req.user.role !== 'doctor' || req.user._id.toString() !== doctor.user_id.toString()) {
+        const doctorUserId = doctor.user_id?._id || doctor.user_id;
+        if (req.user.role !== 'doctor' || req.user._id.toString() !== doctorUserId.toString()) {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
         const Notification = require('../models/Notification');
+        const doctorName = formatDoctorName(doctor.user_id?.full_name);
+        const patientName = formatPatientName(appointment.patient_id?.full_name);
 
         if (typeof chat_unlocked !== 'undefined') {
             const prev = appointment.chat_unlocked;
             appointment.chat_unlocked = !!chat_unlocked;
             if (appointment.chat_unlocked && !prev) {
-                // notify patient that chat is enabled (generic message, no links)
                 await Notification.create({
                     user_id: appointment.patient_id,
                     type: 'chat_available',
-                    message: `Chat has been enabled for your appointment`,
+                    message: `${doctorName} enabled chat for your appointment.`,
                     data: { appointment_id: appointment._id }
                 });
-                // optional confirmation for doctor
-                if (doctor.user_id) {
-                    await Notification.create({ user_id: doctor.user_id, type: 'chat_available_confirmation', message: `You enabled chat for the appointment on ${appointment.appointment_date}`, data: { appointment_id: appointment._id } });
+                if (doctorUserId) {
+                    await Notification.create({ user_id: doctorUserId, type: 'chat_available_confirmation', message: `You enabled chat for ${patientName} on ${appointment.appointment_date}.`, data: { appointment_id: appointment._id } });
                 }
             }
             if (!appointment.chat_unlocked && prev) {
-                // notify patient that chat is disabled (generic message)
                 await Notification.create({
                     user_id: appointment.patient_id,
                     type: 'chat_disabled',
-                    message: `Chat has been disabled for your appointment`,
+                    message: `${doctorName} disabled chat for your appointment.`,
                     data: { appointment_id: appointment._id }
                 });
-                if (doctor.user_id) {
-                    await Notification.create({ user_id: doctor.user_id, type: 'chat_disabled_confirmation', message: `You disabled chat for the appointment on ${appointment.appointment_date}`, data: { appointment_id: appointment._id } });
+                if (doctorUserId) {
+                    await Notification.create({ user_id: doctorUserId, type: 'chat_disabled_confirmation', message: `You disabled chat for ${patientName} on ${appointment.appointment_date}.`, data: { appointment_id: appointment._id } });
                 }
             }
         }
@@ -299,22 +391,23 @@ router.put('/:id/permissions', protect, async (req, res) => {
                     const msgDoctorText = renderTemplate(tplBaseDoc + '.txt', { name: doctor.user_id?.full_name || doctor.user_id?.email, doctor: doctor.user_id?.full_name || 'Doctor', date: appointment.appointment_date, time: appointment.appointment_time, link: appointment.zoom_join_url });
                     const msgDoctorHtml = renderTemplate(tplBaseDoc + '.html', { name: doctor.user_id?.full_name || doctor.user_id?.email, doctor: doctor.user_id?.full_name || 'Doctor', date: appointment.appointment_date, time: appointment.appointment_time, link: appointment.zoom_join_url });
 
-                    await Notification.create({ user_id: appointment.patient_id, type: 'video_link', message: msgPatientText, data: { appointment_id: appointment._id, zoom_join_url: appointment.zoom_join_url } });
-                    await Notification.create({ user_id: doctor.user_id, type: 'video_link', message: msgDoctorText, data: { appointment_id: appointment._id, zoom_join_url: appointment.zoom_join_url } });
+                    await Notification.create({ user_id: appointment.patient_id, type: 'video_link', message: `${doctorName} shared your video consultation link for ${appointment.appointment_date} at ${appointment.appointment_time}.`, data: { appointment_id: appointment._id, zoom_join_url: appointment.zoom_join_url } });
+                    await Notification.create({ user_id: doctorUserId, type: 'video_link', message: `You shared a video consultation link with ${patientName} for ${appointment.appointment_date} at ${appointment.appointment_time}.`, data: { appointment_id: appointment._id, zoom_join_url: appointment.zoom_join_url } });
 
-                    // send emails via selected provider (async, don't block response)
-                    (async () => {
-                        try {
-                            await emailService.sendEmail({ to: appointment.patient_id.email, subject: `Video Call Link for ${appointment.appointment_date}`, text: msgPatientText, html: msgPatientHtml });
-                        } catch (err) {
-                            console.error('Email send to patient failed', err);
-                        }
-                        try {
-                            await emailService.sendEmail({ to: doctor.user_id.email, subject: `Video Call Enabled - ${appointment.appointment_date}`, text: msgDoctorText, html: msgDoctorHtml });
-                        } catch (err) {
-                            console.error('Email send to doctor failed', err);
-                        }
-                    })();
+                    await Promise.allSettled([
+                        emailService.sendEmail({
+                            to: appointment.patient_id.email,
+                            subject: `Video Call Link for ${appointment.appointment_date}`,
+                            text: msgPatientText,
+                            html: msgPatientHtml,
+                        }),
+                        emailService.sendEmail({
+                            to: doctor.user_id?.email,
+                            subject: `Video Call Enabled - ${appointment.appointment_date}`,
+                            text: msgDoctorText,
+                            html: msgDoctorHtml,
+                        }),
+                    ]);
                 }
             } else {
                 appointment.zoom_join_url = null;
@@ -379,7 +472,9 @@ router.patch('/:id/video-toggle', protect, async (req, res) => {
 
 router.patch('/:id/doctor-join-call', protect, async (req, res) => {
     try {
-        const appointment = await Appointment.findById(req.params.id);
+        const appointment = await Appointment.findById(req.params.id)
+            .populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } })
+            .populate('patient_id', 'full_name');
 
         if (!appointment) {
             return res.status(404).json({ message: 'Appointment not found' });
@@ -391,7 +486,8 @@ router.patch('/:id/doctor-join-call', protect, async (req, res) => {
             isAuthorized = true;
         } else if (req.user.role === 'doctor') {
             const doctor = await Doctor.findOne({ user_id: req.user._id });
-            if (doctor && doctor._id.toString() === appointment.doctor_id.toString()) {
+            const appointmentDoctorId = appointment.doctor_id?._id || appointment.doctor_id;
+            if (doctor && doctor._id.toString() === appointmentDoctorId.toString()) {
                 isAuthorized = true;
             }
         }
@@ -402,6 +498,28 @@ router.patch('/:id/doctor-join-call', protect, async (req, res) => {
 
         appointment.video.doctorInCall = true;
         await appointment.save();
+
+        try {
+            const Notification = require('../models/Notification');
+            const doctorName = formatDoctorName(appointment.doctor_id?.user_id?.full_name);
+            const patientName = formatPatientName(appointment.patient_id?.full_name);
+            await Notification.create({
+                user_id: appointment.patient_id._id || appointment.patient_id,
+                type: 'video_call_started',
+                message: `${doctorName} joined the video session.`,
+                data: { appointment_id: appointment._id, zoom_join_url: appointment.zoom_join_url || null },
+            });
+            if (appointment.doctor_id?.user_id?._id) {
+                await Notification.create({
+                    user_id: appointment.doctor_id.user_id._id,
+                    type: 'video_call_started_confirmation',
+                    message: `You joined the video session with ${patientName}.`,
+                    data: { appointment_id: appointment._id, zoom_join_url: appointment.zoom_join_url || null },
+                });
+            }
+        } catch (notifyErr) {
+            console.error('Doctor join call notification failed', notifyErr);
+        }
 
         res.json({
             message: 'Doctor joined video call',
@@ -415,7 +533,9 @@ router.patch('/:id/doctor-join-call', protect, async (req, res) => {
 
 router.patch('/:id/doctor-leave-call', protect, async (req, res) => {
     try {
-        const appointment = await Appointment.findById(req.params.id);
+        const appointment = await Appointment.findById(req.params.id)
+            .populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } })
+            .populate('patient_id', 'full_name');
 
         if (!appointment) {
             return res.status(404).json({ message: 'Appointment not found' });
@@ -427,7 +547,8 @@ router.patch('/:id/doctor-leave-call', protect, async (req, res) => {
             isAuthorized = true;
         } else if (req.user.role === 'doctor') {
             const doctor = await Doctor.findOne({ user_id: req.user._id });
-            if (doctor && doctor._id.toString() === appointment.doctor_id.toString()) {
+            const appointmentDoctorId = appointment.doctor_id?._id || appointment.doctor_id;
+            if (doctor && doctor._id.toString() === appointmentDoctorId.toString()) {
                 isAuthorized = true;
             }
         }
@@ -438,6 +559,28 @@ router.patch('/:id/doctor-leave-call', protect, async (req, res) => {
 
         appointment.video.doctorInCall = false;
         await appointment.save();
+
+        try {
+            const Notification = require('../models/Notification');
+            const doctorName = formatDoctorName(appointment.doctor_id?.user_id?.full_name);
+            const patientName = formatPatientName(appointment.patient_id?.full_name);
+            await Notification.create({
+                user_id: appointment.patient_id._id || appointment.patient_id,
+                type: 'video_call_ended',
+                message: `${doctorName} ended the video session.`,
+                data: { appointment_id: appointment._id },
+            });
+            if (appointment.doctor_id?.user_id?._id) {
+                await Notification.create({
+                    user_id: appointment.doctor_id.user_id._id,
+                    type: 'video_call_ended_confirmation',
+                    message: `You ended the video session with ${patientName}.`,
+                    data: { appointment_id: appointment._id },
+                });
+            }
+        } catch (notifyErr) {
+            console.error('Doctor leave call notification failed', notifyErr);
+        }
 
         res.json({
             message: 'Doctor left video call',

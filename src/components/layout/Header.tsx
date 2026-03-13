@@ -104,6 +104,14 @@ export function Header() {
           >
             About
           </Link>
+          {isAuthenticated && role === 'patient' && (
+            <Link
+              to="/medical-documents"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Medical Documents
+            </Link>
+          )}
         </nav>
 
         {/* Desktop Auth + Notifications */}
@@ -294,6 +302,15 @@ export function Header() {
             >
               About
             </Link>
+            {isAuthenticated && role === 'patient' && (
+              <Link
+                to="/medical-documents"
+                className="text-sm font-medium"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Medical Documents
+              </Link>
+            )}
             <div className="flex flex-col gap-2 pt-4 border-t border-border">
               {isAuthenticated ? (
                 <>
