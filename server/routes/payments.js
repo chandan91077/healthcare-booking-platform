@@ -23,6 +23,11 @@ function getCashfreeHeaders() {
     };
 }
 
+function isLocalhostUrl(url) {
+    if (!url) return true;
+    return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(String(url).trim());
+}
+
 async function confirmAppointmentPayment({ appointment, patientId, cashfreeOrderId, cashfreePaymentId, cashfreePaymentStatus }) {
     const existingPayment = await Payment.findOne({
         appointment_id: appointment._id,
@@ -161,6 +166,12 @@ router.post('/cashfree/order', protect, async (req, res) => {
         const orderId = `appt_${appointment._id}_${Date.now()}`.slice(0, 45);
         const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
 
+        if (process.env.CASHFREE_ENV === 'production' && isLocalhostUrl(frontendBaseUrl)) {
+            return res.status(400).json({
+                message: 'Production Cashfree requires a public FRONTEND_URL (not localhost). Update FRONTEND_URL in server .env or use CASHFREE_ENV=sandbox for local testing.',
+            });
+        }
+
         const orderPayload = {
             order_id: orderId,
             order_amount: Number(appointment.amount || 0),
@@ -187,8 +198,16 @@ router.post('/cashfree/order', protect, async (req, res) => {
             cashfree_env: process.env.CASHFREE_ENV === 'production' ? 'production' : 'sandbox',
         });
     } catch (error) {
-        const message = error?.response?.data?.message || error.message || 'Failed to create Cashfree order';
-        res.status(500).json({ message });
+        const providerStatus = Number(error?.response?.status || 0);
+        const providerMessage =
+            error?.response?.data?.message ||
+            error?.response?.data?.error_description ||
+            error?.response?.data?.error ||
+            error?.message ||
+            'Failed to create Cashfree order';
+
+        const statusCode = providerStatus >= 400 && providerStatus < 500 ? 400 : 500;
+        res.status(statusCode).json({ message: providerMessage });
     }
 });
 
@@ -237,8 +256,16 @@ router.post('/cashfree/verify', protect, async (req, res) => {
             appointment_status: appointment.status,
         });
     } catch (error) {
-        const message = error?.response?.data?.message || error.message || 'Failed to verify Cashfree payment';
-        res.status(500).json({ message });
+        const providerStatus = Number(error?.response?.status || 0);
+        const providerMessage =
+            error?.response?.data?.message ||
+            error?.response?.data?.error_description ||
+            error?.response?.data?.error ||
+            error?.message ||
+            'Failed to verify Cashfree payment';
+
+        const statusCode = providerStatus >= 400 && providerStatus < 500 ? 400 : 500;
+        res.status(statusCode).json({ message: providerMessage });
     }
 });
 

@@ -160,7 +160,7 @@ export default function Payment() {
   const platformFee = Number(appointment?.platform_fee ?? 0);
   const totalAmount = Number(appointment?.amount ?? 0);
 
-  const handlePayment = async () => {
+  const handleOnlinePayment = async () => {
     const userId = user?._id || user?.id;
     if (!appointment || !userId) {
       toast.error("User or appointment information missing");
@@ -205,14 +205,17 @@ export default function Payment() {
       });
     } catch (error: any) {
       console.error("Payment error:", error);
-      toast.error(error.message || "Something went wrong with the payment");
+      toast.error(
+        error?.response?.data?.message ||
+        error?.message ||
+        "Something went wrong with the payment"
+      );
     } finally {
       setProcessing(false);
     }
   };
 
-  // Testing helper: simulate a successful payment without calling a payment gateway
-  const handleSimulatePayment = async () => {
+  const handleCashPayment = async () => {
     if (!appointment) {
       toast.error("Appointment not loaded");
       return;
@@ -221,18 +224,15 @@ export default function Payment() {
     setProcessing(true);
 
     try {
-      // Use simulated IDs so backend records the payment and confirms the appointment
       await api.post('/payments', {
         appointment_id: appointment.id,
-        amount: totalAmount,
-        razorpay_order_id: `sim_${Date.now()}`,
-        razorpay_payment_id: `sim_pay_${Date.now()}`,
+        payment_method: 'cash',
       });
 
-      toast.success("Simulated payment successful! Your appointment is confirmed.");
+      toast.success("Cash payment selected. Your appointment is pending confirmation.");
       navigate('/appointments');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Simulated payment failed");
+      toast.error(error.response?.data?.message || "Cash payment request failed");
     } finally {
       setProcessing(false);
     }
@@ -328,11 +328,11 @@ export default function Payment() {
               <p>Your payment is secured with 256-bit SSL encryption</p>
             </div>
 
-            {/* Pay Button */}
+            {/* Payment Options */}
             <Button
               className="w-full gradient-primary border-0"
               size="lg"
-              onClick={handlePayment}
+              onClick={handleOnlinePayment}
               disabled={processing || verifyingPayment}
             >
               {processing || verifyingPayment ? (
@@ -340,7 +340,7 @@ export default function Payment() {
               ) : (
                 <>
                   <CreditCard className="mr-2 h-5 w-5" />
-                  Pay ₹{totalAmount}
+                  Pay Online ₹{totalAmount}
                 </>
               )}
             </Button>
@@ -349,10 +349,10 @@ export default function Payment() {
               variant="outline"
               className="w-full mt-3"
               size="lg"
-              onClick={handleSimulatePayment}
-              disabled={processing}
+              onClick={handleCashPayment}
+              disabled={processing || verifyingPayment}
             >
-              {processing ? "Processing..." : "Simulate Test Payment (Testing only)"}
+              {processing ? "Processing..." : "Pay with Cash"}
             </Button>
 
             <p className="text-xs text-center text-muted-foreground mt-3">
