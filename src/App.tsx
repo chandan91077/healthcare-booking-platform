@@ -19,9 +19,11 @@ const BookAppointment = React.lazy(() => import("./pages/BookAppointment"));
 const Payment = React.lazy(() => import("./pages/Payment"));
 const Appointments = React.lazy(() => import("./pages/Appointments"));
 const Chat = React.lazy(() => import("./pages/Chat"));
+const Messages = React.lazy(() => import("./pages/Messages"));
 const Prescriptions = React.lazy(() => import("./pages/Prescriptions"));
 const NotificationsPage = React.lazy(() => import("./pages/Notifications"));
 const Settings = React.lazy(() => import("./pages/Settings"));
+const MedicalDocuments = React.lazy(() => import("./pages/MedicalDocuments"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const Specializations = React.lazy(() => import("./pages/Specializations"));
 const AboutUs = React.lazy(() => import("./pages/AboutUs"));
@@ -57,7 +59,9 @@ const App = () => (
               <Route path="/payment/:appointmentId" element={<Payment />} />
               <Route path="/appointments" element={<Appointments />} />
               <Route path="/chat/:appointmentId" element={<Chat />} />
+              <Route path="/messages" element={<Messages />} />
               <Route path="/prescriptions" element={<Prescriptions />} />
+              <Route path="/medical-documents" element={<MedicalDocuments />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/specializations" element={<Specializations />} />

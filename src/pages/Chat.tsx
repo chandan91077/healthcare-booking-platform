@@ -68,6 +68,7 @@ export default function Chat() {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasAutoScrolledInitiallyRef = useRef(false);
 
   // Prescriptions associated with this appointment
   const [prescriptionsForAppointment, setPrescriptionsForAppointment] = useState<any[]>([]);
@@ -111,9 +112,13 @@ export default function Chat() {
       // In MongoDB, these might be populated objects or IDs. 
       // If populated:
       if (typeof otherPartyId === 'object') {
+        const resolvedName = role === 'patient'
+          ? (otherPartyId.user_id?.full_name || otherPartyId.full_name || "Doctor")
+          : (otherPartyId.full_name || otherPartyId.user_id?.full_name || "Patient");
+
         otherParty = {
           id: otherPartyId._id,
-          full_name: otherPartyId.user_id?.full_name || "Unknown", // Doctor model has user_id ref
+          full_name: resolvedName,
           role: role === 'patient' ? 'doctor' : 'patient'
         };
       } else {
@@ -181,9 +186,12 @@ export default function Chat() {
     fetchPrescriptionsForAppointment();
   }, [appointmentId]);
 
-  // Scroll to bottom when messages change
+  // Auto-scroll only once on initial chat load (avoid jump on every polling refresh)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!hasAutoScrolledInitiallyRef.current && messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "nearest" });
+      hasAutoScrolledInitiallyRef.current = true;
+    }
   }, [messages]);
 
   const handleSendMessage = async (e?: React.FormEvent, fileUrl?: string, fileType: 'text' | 'image' | 'file' = 'text') => {
@@ -214,6 +222,9 @@ export default function Chat() {
 
       setMessages((prev) => [...prev, savedMessage]);
       setNewMessage("");
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      });
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to send message");
     } finally {

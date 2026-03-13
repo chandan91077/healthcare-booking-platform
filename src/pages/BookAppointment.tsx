@@ -66,6 +66,7 @@ export default function BookAppointment() {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(generateTimeSlots());
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [platformFee, setPlatformFee] = useState(0);
 
   // Derived boolean to avoid repeated find calls and ensure consistent checks
   const selectedSlot = useMemo(() => timeSlots.find((s) => s.time === selectedTime) ?? null, [timeSlots, selectedTime]);
@@ -130,6 +131,20 @@ export default function BookAppointment() {
 
     fetchDoctor();
   }, [doctorId, navigate]);
+
+  useEffect(() => {
+    async function fetchPlatformFee() {
+      try {
+        const { data } = await api.get('/platform-settings/public');
+        setPlatformFee(Number(data?.platform_fee || 0));
+      } catch (error) {
+        console.error('Failed to fetch platform fee', error);
+        setPlatformFee(0);
+      }
+    }
+
+    fetchPlatformFee();
+  }, []);
 
   useEffect(() => {
     async function fetchBookedSlotsAndAvailability() {
@@ -231,7 +246,8 @@ export default function BookAppointment() {
         toast.warn("Emergency booking: this will preempt an existing appointment at this time.");
       }
 
-      const amount = appointmentType === "emergency" ? doctor.emergency_fee : doctor.consultation_fee;
+      const doctorFee = appointmentType === "emergency" ? doctor.emergency_fee : doctor.consultation_fee;
+      const totalAmount = Number((doctorFee + platformFee).toFixed(2));
 
       const { data: appointment } = await api.post('/appointments', {
         patient_id: (currentUser && (currentUser._id || currentUser.id)) || (user && (user._id || user.id)),
@@ -239,7 +255,9 @@ export default function BookAppointment() {
         appointment_date: format(selectedDate, "yyyy-MM-dd"),
         appointment_time: selectedTime,
         appointment_type: appointmentType,
-        amount: amount,
+        amount: totalAmount,
+        doctor_fee: doctorFee,
+        platform_fee: platformFee,
       });
 
       // Send email notification (fire and forget)
@@ -279,7 +297,8 @@ export default function BookAppointment() {
 
   if (!doctor) return null;
 
-  const fee = appointmentType === "emergency" ? doctor.emergency_fee : doctor.consultation_fee;
+  const doctorFee = appointmentType === "emergency" ? doctor.emergency_fee : doctor.consultation_fee;
+  const totalFee = Number((doctorFee + platformFee).toFixed(2));
 
   return (
     <MainLayout>
@@ -442,7 +461,7 @@ export default function BookAppointment() {
                     <p className="text-sm text-muted-foreground">Total Amount</p>
                     <p className="font-heading text-3xl font-bold flex items-center">
                       <IndianRupee className="h-6 w-6" />
-                      {fee}
+                      {totalFee}
                     </p>
                   </div>
                   {selectedDate && selectedTime && (
@@ -453,6 +472,16 @@ export default function BookAppointment() {
                       </p>
                     </div>
                   )}
+                </div>
+                <div className="space-y-1 mb-4 text-sm">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Doctor Fee</span>
+                    <span>₹{doctorFee}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Platform Fee</span>
+                    <span>₹{platformFee}</span>
+                  </div>
                 </div>
                 <Button
                   className="w-full"

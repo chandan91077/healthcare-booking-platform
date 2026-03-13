@@ -83,7 +83,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <Link to="/doctors" className="flex flex-col items-center text-center gap-3">
@@ -106,7 +106,7 @@ export default function Dashboard() {
           </Card>
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
-              <Link to="/appointments" className="flex flex-col items-center text-center gap-3">
+              <Link to="/messages" className="flex flex-col items-center text-center gap-3">
                 <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
                   <MessageSquare className="h-6 w-6 text-success" />
                 </div>
@@ -121,6 +121,16 @@ export default function Dashboard() {
                   <FileText className="h-6 w-6 text-warning" />
                 </div>
                 <span className="font-medium">Prescriptions</span>
+              </Link>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <Link to="/medical-documents" className="flex flex-col items-center text-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-primary" />
+                </div>
+                <span className="font-medium">Medical Documents</span>
               </Link>
             </CardContent>
           </Card>

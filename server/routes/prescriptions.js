@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Prescription = require('../models/Prescription');
 const Doctor = require('../models/Doctor');
+const Appointment = require('../models/Appointment');
 const { protect } = require('../middleware/authMiddleware');
 
 router.get('/', protect, async (req, res) => {
@@ -73,12 +74,34 @@ router.post('/', protect, async (req, res) => {
             return res.status(403).json({ message: 'Only doctors can create prescriptions' });
         }
 
-        const { appointment_id, patient_id, doctor_id, diagnosis, medications, instructions, doctor_notes, pdf_url } = req.body;
+        const { appointment_id, diagnosis, medications, instructions, doctor_notes, pdf_url } = req.body;
+
+        if (!appointment_id) {
+            return res.status(400).json({ message: 'appointment_id is required' });
+        }
+
+        const doctorProfile = await Doctor.findOne({ user_id: req.user._id });
+        if (!doctorProfile) {
+            return res.status(404).json({ message: 'Doctor profile not found' });
+        }
+
+        const appointment = await Appointment.findById(appointment_id);
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        if (appointment.doctor_id.toString() !== doctorProfile._id.toString()) {
+            return res.status(403).json({ message: 'You can only prescribe for your own appointments' });
+        }
+
+        if (appointment.status === 'cancelled') {
+            return res.status(400).json({ message: 'Cannot prescribe for a cancelled appointment' });
+        }
 
         const prescription = await Prescription.create({
             appointment_id,
-            patient_id,
-            doctor_id,
+            patient_id: appointment.patient_id,
+            doctor_id: doctorProfile._id,
             diagnosis,
             medications,
             instructions,
@@ -86,7 +109,27 @@ router.post('/', protect, async (req, res) => {
             pdf_url
         });
 
-        res.status(201).json(prescription);
+        try {
+            const Notification = require('../models/Notification');
+            await Notification.create({
+                user_id: appointment.patient_id,
+                type: 'prescription',
+                message: 'A new prescription has been added by your doctor.',
+                data: {
+                    appointment_id: appointment._id,
+                    prescription_id: prescription._id,
+                },
+            });
+        } catch (nerr) {
+            console.error('Failed to create prescription notification', nerr);
+        }
+
+        const populatedPrescription = await Prescription.findById(prescription._id)
+            .populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } })
+            .populate('appointment_id')
+            .populate('patient_id', 'full_name email');
+
+        res.status(201).json(populatedPrescription);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }

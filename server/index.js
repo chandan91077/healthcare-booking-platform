@@ -65,6 +65,7 @@ app.use('/api/payments', require('./routes/payments'));
 app.use('/api/availability', require('./routes/availability'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/medical-records', require('./routes/medicalRecords'));
+app.use('/api/platform-settings', require('./routes/platformSettings'));
 
 const PORT = process.env.PORT || 5000;
 

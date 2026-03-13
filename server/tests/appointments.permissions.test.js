@@ -62,4 +62,54 @@ describe('Appointments permissions and notifications flow', () => {
     expect(patientNotifs.length).toBeGreaterThanOrEqual(1);
     expect(doctorNotifs.length).toBeGreaterThanOrEqual(1);
   });
+
+  test('doctor can mark appointment completed and patient gets notified', async () => {
+    const User = require('../models/User');
+    const Doctor = require('../models/Doctor');
+    const Appointment = require('../models/Appointment');
+    const Notification = require('../models/Notification');
+
+    const patientRes = await request(app).post('/api/auth/register').send({ full_name: 'Pat Done', email: 'patdone@example.com', password: 'secret' });
+    expect(patientRes.status).toBe(201);
+    const patient = await User.findOne({ email: 'patdone@example.com' });
+
+    const docRes = await request(app).post('/api/auth/register').send({ full_name: 'Doc Done', email: 'docdone@example.com', password: 'secret', role: 'doctor' });
+    expect(docRes.status).toBe(201);
+    const docToken = docRes.body.token;
+    const docUser = await User.findOne({ email: 'docdone@example.com' });
+
+    const createDoc = await request(app)
+      .post('/api/doctors')
+      .set('Authorization', `Bearer ${docToken}`)
+      .send({ user_id: docUser._id, specialization: 'Neurology', experience_years: 6, consultation_fee: 600, is_verified: true });
+    expect(createDoc.status).toBe(201);
+    const doctor = await Doctor.findOne({ user_id: docUser._id });
+
+    const appt = await Appointment.create({
+      doctor_id: doctor._id,
+      patient_id: patient._id,
+      appointment_date: '2026-02-14',
+      appointment_time: '11:00',
+      amount: 600,
+      status: 'confirmed',
+      payment_status: 'paid',
+      chat_unlocked: true,
+    });
+
+    const res = await request(app)
+      .put(`/api/appointments/${appt._id}`)
+      .set('Authorization', `Bearer ${docToken}`)
+      .send({ status: 'completed' });
+
+    expect(res.status).toBe(200);
+
+    const updated = await Appointment.findById(appt._id);
+    expect(updated.status).toBe('completed');
+
+    const patientNotif = await Notification.findOne({ user_id: patient._id, type: 'appointment_completed' });
+    const doctorNotif = await Notification.findOne({ user_id: docUser._id, type: 'appointment_completed_confirmation' });
+
+    expect(patientNotif).toBeTruthy();
+    expect(doctorNotif).toBeTruthy();
+  });
 });
