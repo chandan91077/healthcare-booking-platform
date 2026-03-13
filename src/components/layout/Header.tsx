@@ -74,6 +74,85 @@ export function Header() {
     }
   };
 
+  const renderNotificationsContent = () => (
+    <DropdownMenuContent className="w-80" align="end" forceMount>
+      <div className="p-2">
+        <div className="flex items-center justify-between mb-2">
+          <p className="font-medium">Notifications</p>
+          <Button size="sm" variant="ghost" asChild>
+            <Link to="/notifications">View all</Link>
+          </Button>
+        </div>
+
+        {role === 'patient' && videoAppointments.length > 0 && (
+          <div className="mb-3 p-2 bg-blue-50 rounded border">
+            <p className="text-sm font-medium text-blue-900 mb-2 flex items-center gap-1">
+              <Video className="h-4 w-4" />
+              Active Video Calls
+            </p>
+            <div className="space-y-1">
+              {videoAppointments.slice(0, 2).map((appt) => (
+                <Button
+                  key={appt._id}
+                  size="sm"
+                  className="w-full justify-start text-xs"
+                  onClick={() => {
+                    window.open(appt.video.patientJoinUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                >
+                  <Video className="h-3 w-3 mr-1" />
+                  Join call with {appt.doctor?.profile?.full_name || 'Doctor'}
+                </Button>
+              ))}
+              {videoAppointments.length > 2 && (
+                <p className="text-xs text-blue-700 mt-1">
+                  +{videoAppointments.length - 2} more calls available
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="mb-3 p-2 border rounded">
+          <p className="text-sm font-medium mb-2">Notification Settings</p>
+          <div className="space-y-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-full justify-start text-xs"
+              asChild
+            >
+              <Link to="/settings">
+                <Settings className="h-3 w-3 mr-1" />
+                Manage Preferences
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {recentNotifs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No recent notifications</p>
+          ) : (
+            recentNotifs.map((n) => (
+              <div key={n._id} className="p-2 border rounded hover:bg-muted/70 cursor-pointer" onClick={async () => {
+                try {
+                  await api.put(`/notifications/${n._id}/read`);
+                  setRecentNotifs((prev) => prev.map((x) => x._id === n._id ? { ...x, read: true } : x));
+                  setUnreadCount((c) => Math.max(0, c - 1));
+                  window.location.href = '/notifications';
+                } catch (e) { console.error(e); }
+              }}>
+                <div className="text-sm">{n.message}</div>
+                <div className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </DropdownMenuContent>
+  );
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
@@ -127,84 +206,7 @@ export function Header() {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-80" align="end" forceMount>
-                <div className="p-2">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-medium">Notifications</p>
-                    <Button size="sm" variant="ghost" asChild>
-                      <Link to="/notifications">View all</Link>
-                    </Button>
-                  </div>
-
-                  {/* Video Call Section for Patients */}
-                  {role === 'patient' && videoAppointments.length > 0 && (
-                    <div className="mb-3 p-2 bg-blue-50 rounded border">
-                      <p className="text-sm font-medium text-blue-900 mb-2 flex items-center gap-1">
-                        <Video className="h-4 w-4" />
-                        Active Video Calls
-                      </p>
-                      <div className="space-y-1">
-                        {videoAppointments.slice(0, 2).map((appt) => (
-                          <Button
-                            key={appt._id}
-                            size="sm"
-                            className="w-full justify-start text-xs"
-                            onClick={() => {
-                              window.open(appt.video.patientJoinUrl, '_blank', 'noopener,noreferrer');
-                            }}
-                          >
-                            <Video className="h-3 w-3 mr-1" />
-                            Join call with {appt.doctor?.profile?.full_name || 'Doctor'}
-                          </Button>
-                        ))}
-                        {videoAppointments.length > 2 && (
-                          <p className="text-xs text-blue-700 mt-1">
-                            +{videoAppointments.length - 2} more calls available
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Notification Settings */}
-                  <div className="mb-3 p-2 border rounded">
-                    <p className="text-sm font-medium mb-2">Notification Settings</p>
-                    <div className="space-y-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="w-full justify-start text-xs"
-                        asChild
-                      >
-                        <Link to="/settings">
-                          <Settings className="h-3 w-3 mr-1" />
-                          Manage Preferences
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {recentNotifs.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No recent notifications</p>
-                    ) : (
-                      recentNotifs.map((n) => (
-                        <div key={n._id} className="p-2 border rounded hover:bg-muted/70 cursor-pointer" onClick={async () => {
-                          try {
-                            await api.put(`/notifications/${n._id}/read`);
-                            setRecentNotifs((prev) => prev.map((x) => x._id === n._id ? { ...x, read: true } : x));
-                            setUnreadCount((c) => Math.max(0, c - 1));
-                            window.location.href = '/notifications';
-                          } catch (e) { console.error(e); }
-                        }}>
-                          <div className="text-sm">{n.message}</div>
-                          <div className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </DropdownMenuContent>
+              {renderNotificationsContent()}
             </DropdownMenu>
           )}
 
@@ -264,17 +266,36 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <button
-          className="md:hidden"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          {mobileMenuOpen ? (
-            <X className="h-6 w-6" />
-          ) : (
-            <Menu className="h-6 w-6" />
+        {/* Mobile Actions */}
+        <div className="md:hidden flex items-center gap-2">
+          {isAuthenticated && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative h-10 w-10" aria-label="Notifications">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-white text-xs">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              {renderNotificationsContent()}
+            </DropdownMenu>
           )}
-        </button>
+
+          <button
+            className="inline-flex h-10 w-10 items-center justify-center"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          >
+            {mobileMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
