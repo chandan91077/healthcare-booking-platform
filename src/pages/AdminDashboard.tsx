@@ -26,6 +26,7 @@ import {
   TrendingUp,
   Trash2,
   Download,
+  Phone,
 } from "lucide-react";
 
 interface DoctorApplication {
@@ -114,7 +115,9 @@ export default function AdminDashboard() {
   const [doctors, setDoctors] = useState<DoctorApplication[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorApplication | null>(null);
+  const [doctorToApprove, setDoctorToApprove] = useState<DoctorApplication | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [doctorToDelete, setDoctorToDelete] = useState<DoctorApplication | null>(null);
@@ -300,8 +303,10 @@ export default function AdminDashboard() {
       );
 
       toast.success(`Dr. ${doctor.profiles?.full_name || "Unknown"} has been approved!`);
+      return true;
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to approve doctor");
+      return false;
     } finally {
       setProcessing(false);
     }
@@ -557,6 +562,22 @@ export default function AdminDashboard() {
             <p className="text-sm text-muted-foreground truncate">
               {doctor.profiles?.email}
             </p>
+            <div className="mt-2 text-sm text-muted-foreground">
+              {doctor.profiles?.phone ? (
+                <a
+                  href={`tel:${doctor.profiles.phone}`}
+                  className="inline-flex items-center gap-1 hover:text-primary"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  {doctor.profiles.phone}
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1">
+                  <Phone className="h-3.5 w-3.5" />
+                  Phone not provided
+                </span>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2 mt-3">
               <Badge variant="outline">{doctor.specialization}</Badge>
               <Badge variant="outline">{doctor.experience_years} years exp.</Badge>
@@ -576,7 +597,14 @@ export default function AdminDashboard() {
             )}
             {doctor.verification_status === "pending" && (
               <div className="flex gap-2 mt-4">
-                <Button size="sm" onClick={() => handleApprove(doctor)} disabled={processing}>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setDoctorToApprove(doctor);
+                    setShowApproveDialog(true);
+                  }}
+                  disabled={processing}
+                >
                   <CheckCircle2 className="h-4 w-4 mr-1" />
                   Approve
                 </Button>
@@ -939,6 +967,48 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Approve Confirmation Dialog */}
+      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve Doctor Application</DialogTitle>
+            <DialogDescription>
+              Confirm approval for Dr. {doctorToApprove?.profiles?.full_name || "this doctor"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 text-sm">
+            <p><strong>Email:</strong> {doctorToApprove?.profiles?.email || "Not provided"}</p>
+            <p><strong>Phone:</strong> {doctorToApprove?.profiles?.phone || "Not provided"}</p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowApproveDialog(false);
+                setDoctorToApprove(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!doctorToApprove) return;
+                const approved = await handleApprove(doctorToApprove);
+                if (approved) {
+                  setShowApproveDialog(false);
+                  setDoctorToApprove(null);
+                }
+              }}
+              disabled={processing || !doctorToApprove}
+            >
+              {processing ? "Approving..." : "Confirm Approve"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reject Dialog */}
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>

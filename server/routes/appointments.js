@@ -191,27 +191,6 @@ router.post('/', protect, async (req, res) => {
             video_unlocked: appointment_type === 'emergency',
         });
 
-        // Create Zoom meeting for the appointment
-        try {
-            const patient = await User.findById(patient_id);
-            const zoomMeeting = await zoomService.createMeeting({
-                patientName: patient.full_name,
-                appointment_date,
-                appointment_time,
-            });
-
-            appointment.video = zoomMeeting;
-            await appointment.save();
-        } catch (zoomError) {
-            console.error('Failed to create Zoom meeting:', zoomError);
-            // Don't fail the appointment creation if Zoom fails, but log it
-        }
-            // Also expose the patient join URL on the appointment directly
-            if (appointment.video?.patientJoinUrl) {
-                appointment.zoom_join_url = appointment.video.patientJoinUrl;
-                await appointment.save();
-            }
-
         res.status(201).json(appointment);
     } catch (error) {
         console.error(error);
@@ -472,12 +451,37 @@ router.patch('/:id/video-toggle', protect, async (req, res) => {
 
         // Toggle video enabled status
         const wasEnabled = appointment.video.enabled;
-        appointment.video.enabled = !appointment.video.enabled;
+        const nowEnabled = !wasEnabled;
 
-        if (appointment.video.enabled && !wasEnabled) {
-            appointment.video.enabledAt = new Date();
-        } else if (!appointment.video.enabled) {
+        if (nowEnabled) {
+            // Create a fresh Zoom meeting on-demand when doctor enables video
+            try {
+                const patient = await User.findById(appointment.patient_id);
+                const zoomMeeting = await zoomService.createMeeting({
+                    patientName: patient?.full_name || 'Patient',
+                    appointment_date: appointment.appointment_date,
+                    appointment_time: appointment.appointment_time,
+                });
+                appointment.video = {
+                    ...zoomMeeting,
+                    enabled: true,
+                    enabledAt: new Date(),
+                    doctorInCall: false,
+                };
+                appointment.zoom_join_url = zoomMeeting.patientJoinUrl || null;
+            } catch (zoomError) {
+                console.error('Failed to create Zoom meeting on video-enable:', zoomError);
+                return res.status(500).json({ message: 'Failed to create Zoom meeting. Please try again.' });
+            }
+        } else {
+            // Disabling video: clear the meeting data
+            appointment.video.enabled = false;
             appointment.video.enabledAt = null;
+            appointment.video.doctorInCall = false;
+            appointment.video.meetingId = null;
+            appointment.video.doctorJoinUrl = null;
+            appointment.video.patientJoinUrl = null;
+            appointment.zoom_join_url = null;
         }
 
         await appointment.save();
