@@ -22,6 +22,7 @@ router.get('/', protect, async (req, res) => {
                 path: 'doctor_id',
                 populate: { path: 'user_id', select: 'full_name' }
             })
+            .populate('patient_id', 'full_name email')
             .populate('appointment_id')
             .sort({ createdAt: -1 });
 

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Doctor = require('../models/Doctor');
 const Notification = require('../models/Notification');
 const { protect } = require('../middleware/authMiddleware');
@@ -110,16 +111,26 @@ router.get('/user/:userId', protect, async (req, res) => {
 // Update doctor profile (e.g. image)
 router.put('/:id', protect, async (req, res) => {
     try {
-        // Basic authorization check: verify the user owns this doctor profile
-        // This is simplified; ideally we check if req.user._id matches doctor.user_id
-        const doctor = await Doctor.findById(req.params.id);
-        if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+        const rawDoctorId = String(req.params.id || '').trim();
+
+        let doctor = null;
+        if (rawDoctorId && rawDoctorId !== 'undefined' && mongoose.isValidObjectId(rawDoctorId)) {
+            doctor = await Doctor.findById(rawDoctorId);
+        }
+
+        if (!doctor) {
+            doctor = await Doctor.findOne({ user_id: req.user._id });
+        }
+
+        if (!doctor) {
+            return res.status(404).json({ message: 'Doctor not found' });
+        }
 
         // if (doctor.user_id.toString() !== req.user._id.toString()) {
         //    return res.status(401).json({ message: 'Not authorized' });
         // }
 
-        const updatedDoctor = await Doctor.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const updatedDoctor = await Doctor.findByIdAndUpdate(doctor._id, req.body, { new: true });
         res.json(updatedDoctor);
     } catch (error) {
         res.status(500).json({ message: error.message });
