@@ -166,11 +166,17 @@ export default function DoctorDashboard() {
           const completedAppts = mappedAppointments.filter((a: any) => a.status === "completed");
 
           const uniquePatients = new Set(completedAppts.map((a: any) => a.patient?._id).filter(Boolean));
-          const totalEarnings = Number(doctorPaymentSummary?.gross_earnings || 0);
+          const settledEarnings = Number(doctorPaymentSummary?.settled_earnings || 0);
+          const unsettledEarnings = Number(doctorPaymentSummary?.unsettled_earnings || 0);
+          const totalEarnings = Number(
+            doctorPaymentSummary?.total_earnings ??
+            doctorPaymentSummary?.gross_earnings ??
+            (settledEarnings + unsettledEarnings)
+          );
 
           setEarningsSummary({
-            settledEarnings: Number(doctorPaymentSummary?.settled_earnings || 0),
-            unsettledEarnings: Number(doctorPaymentSummary?.unsettled_earnings || 0),
+            settledEarnings,
+            unsettledEarnings,
             settledPayments: Number(doctorPaymentSummary?.settled_payments || 0),
             unsettledPayments: Number(doctorPaymentSummary?.unsettled_payments || 0),
           });
