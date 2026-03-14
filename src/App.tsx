@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import React from 'react';
 
@@ -28,6 +28,11 @@ const NotFound = React.lazy(() => import("./pages/NotFound"));
 const Specializations = React.lazy(() => import("./pages/Specializations"));
 const AboutUs = React.lazy(() => import("./pages/AboutUs"));
 const PastAppointments = React.lazy(() => import("./pages/PastAppointments"));
+const Contact = React.lazy(() => import("./pages/Contact"));
+const PrivacyPolicy = React.lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = React.lazy(() => import("./pages/TermsOfService"));
+const Benefits = React.lazy(() => import("./pages/Benefits"));
+const Faq = React.lazy(() => import("./pages/Faq"));
 
 const queryClient = new QueryClient();
 
@@ -46,10 +51,15 @@ const App = () => (
           <React.Suspense fallback={<div />}>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/home" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/login" element={<Navigate to="/auth" replace />} />
+              <Route path="/register" element={<Navigate to="/auth?mode=signup" replace />} />
               <Route path="/adminpage" element={<AdminPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/patient-dashboard" element={<Dashboard />} />
               <Route path="/doctor" element={<DoctorDashboard />} />
+              <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
               <Route path="/doctor/register" element={<DoctorRegister />} />
               <Route path="/doctor/past-appointments" element={<PastAppointments />} />
               <Route path="/admin" element={<AdminDashboard />} />
@@ -58,14 +68,28 @@ const App = () => (
               <Route path="/doctor/:doctorId" element={<DoctorProfile />} />
               <Route path="/payment/:appointmentId" element={<Payment />} />
               <Route path="/appointments" element={<Appointments />} />
+              <Route path="/chat" element={<Messages />} />
               <Route path="/chat/:appointmentId" element={<Chat />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/prescriptions" element={<Prescriptions />} />
               <Route path="/medical-documents" element={<MedicalDocuments />} />
+              <Route path="/records" element={<MedicalDocuments />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/specializations" element={<Specializations />} />
               <Route path="/about" element={<AboutUs />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/benefits" element={<Benefits />} />
+              <Route path="/faq" element={<Faq />} />
+              <Route path="/join-as-doctor" element={<Navigate to="/auth?mode=signup&role=doctor" replace />} />
+
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/doctor-benefits" element={<Benefits />} />
+              <Route path="/doctor-faq" element={<Faq />} />
+
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
