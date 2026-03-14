@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const apiBaseUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim() || 'http://localhost:5000/api';
+const normalizeApiBaseUrl = (rawUrl: string) => {
+    const trimmed = rawUrl.trim().replace(/\/+$/, '');
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
+const envApiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+const fallbackApiUrl = import.meta.env.PROD
+    ? 'https://healthcare-booking-platform.onrender.com/api'
+    : 'http://localhost:5000/api';
+
+const apiBaseUrl = normalizeApiBaseUrl(envApiUrl || fallbackApiUrl);
 
 const api = axios.create({
     baseURL: apiBaseUrl,

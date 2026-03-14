@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format, isFuture } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { ArrowLeft, Calendar, Search } from "lucide-react";
 
@@ -138,9 +138,9 @@ export default function PastAppointments() {
     }
   }, [user, isLoading, isAuthenticated, role]);
 
-  const pastAppointments = appointments.filter(
-    (a) => !isFuture(new Date(a.appointment_date)) && (a.status === "completed" || a.status === "cancelled")
-  ).sort((a, b) => new Date(b.appointment_date).getTime() - new Date(a.appointment_date).getTime());
+  const pastAppointments = appointments
+    .filter((a) => a.status === "completed" || a.status === "cancelled")
+    .sort((a, b) => new Date(b.appointment_date).getTime() - new Date(a.appointment_date).getTime());
 
   const filteredPastAppointments = pastAppointments.filter((appt) => {
     const matchesSearch = !filters.searchTerm ||

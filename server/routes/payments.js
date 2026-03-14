@@ -108,10 +108,20 @@ function getPaymentAmount(payment) {
 
 function getDoctorEarningAmount(payment) {
     const appointmentDoctorFee = Number(payment?.appointment_id?.doctor_fee);
+    if (Number.isFinite(appointmentDoctorFee) && appointmentDoctorFee > 0) {
+        return appointmentDoctorFee;
+    }
+
+    const paymentAmount = getPaymentAmount(payment);
+    if (Number.isFinite(paymentAmount) && paymentAmount > 0) {
+        return paymentAmount;
+    }
+
     if (Number.isFinite(appointmentDoctorFee) && appointmentDoctorFee >= 0) {
         return appointmentDoctorFee;
     }
-    return getPaymentAmount(payment);
+
+    return 0;
 }
 
 function getPaymentSettledAmount(payment) {
@@ -591,6 +601,7 @@ router.get('/doctor/summary', protect, async (req, res) => {
             }));
 
         res.json({
+            total_earnings: Number(grossEarnings.toFixed(2)),
             gross_earnings: grossEarnings,
             settled_earnings: Number(settledEarnings.toFixed(2)),
             unsettled_earnings: Number(unsettledEarnings.toFixed(2)),
