@@ -206,6 +206,11 @@ router.post('/', protect, async (req, res) => {
             console.error('Failed to create Zoom meeting:', zoomError);
             // Don't fail the appointment creation if Zoom fails, but log it
         }
+            // Also expose the patient join URL on the appointment directly
+            if (appointment.video?.patientJoinUrl) {
+                appointment.zoom_join_url = appointment.video.patientJoinUrl;
+                await appointment.save();
+            }
 
         res.status(201).json(appointment);
     } catch (error) {
@@ -371,8 +376,25 @@ router.put('/:id/permissions', protect, async (req, res) => {
                 if (zoom_join_url) {
                     appointment.zoom_join_url = zoom_join_url;
                 } else if (!appointment.zoom_join_url) {
-                    // generate a simple placeholder join link
-                    appointment.zoom_join_url = `https://zoom.${appointment.meeting_provider === 'meet' ? 'google.com' : 'us'}/j/${appointment._id.toString().slice(-8)}`;
+                        // Use the real Zoom URL from the auto-created meeting if available
+                        if (appointment.video?.patientJoinUrl) {
+                            appointment.zoom_join_url = appointment.video.patientJoinUrl;
+                        } else {
+                            // No pre-created meeting — try to generate a new one now
+                            try {
+                                const meetingPatient = await User.findById(appointment.patient_id);
+                                const newMeeting = await zoomService.createMeeting({
+                                    patientName: meetingPatient?.full_name || 'Patient',
+                                    appointment_date: appointment.appointment_date,
+                                    appointment_time: appointment.appointment_time,
+                                });
+                                appointment.video = newMeeting;
+                                appointment.zoom_join_url = newMeeting.patientJoinUrl;
+                            } catch (zoomErr) {
+                                console.error('Failed to create Zoom meeting on video unlock:', zoomErr);
+                                // Leave zoom_join_url unset rather than inserting a fake link
+                            }
+                        }
                 }
 
                 if (auto_send) {
