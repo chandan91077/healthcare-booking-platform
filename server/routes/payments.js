@@ -112,8 +112,20 @@ function getDoctorEarningAmount(payment) {
         return appointmentDoctorFee;
     }
 
+    const appointmentAmount = Number(payment?.appointment_id?.amount || 0);
+    const appointmentPlatformFee = Number(payment?.appointment_id?.platform_fee || 0);
+    if (Number.isFinite(appointmentAmount) && appointmentAmount > 0) {
+        if (Number.isFinite(appointmentPlatformFee) && appointmentPlatformFee > 0) {
+            return Math.max(0, appointmentAmount - appointmentPlatformFee);
+        }
+        return appointmentAmount;
+    }
+
     const paymentAmount = getPaymentAmount(payment);
     if (Number.isFinite(paymentAmount) && paymentAmount > 0) {
+        if (Number.isFinite(appointmentPlatformFee) && appointmentPlatformFee > 0) {
+            return Math.max(0, paymentAmount - appointmentPlatformFee);
+        }
         return paymentAmount;
     }
 

@@ -56,7 +56,7 @@ class ZoomService {
                     host_video: true,
                     participant_video: true,
                     join_before_host: false, // Doctor must join first
-                    waiting_room: true, // Enable waiting room
+                    waiting_room: false, // Don't require host to manually admit participants
                     use_pmi: false, // Don't use personal meeting ID
                     approval_type: 0, // Automatically approve
                     audio: 'both', // Both telephone and computer audio

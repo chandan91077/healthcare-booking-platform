@@ -63,12 +63,28 @@ interface Appointment {
   } | null;
 }
 
+interface PrescriptionMedication {
+  name?: string;
+  dosage?: string;
+  frequency?: string;
+  duration?: string;
+}
+
+interface Prescription {
+  _id: string;
+  appointment_id?: string | { _id?: string };
+  diagnosis?: string;
+  medications?: PrescriptionMedication[];
+  instructions?: string;
+}
+
 export default function PastAppointments() {
   const { user, role, isLoading, isAuthenticated } = useAuthContext();
   const navigate = useNavigate();
   const [doctorData, setDoctorData] = useState<DoctorData | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [prescriptionsByAppointment, setPrescriptionsByAppointment] = useState<Record<string, Prescription[]>>({});
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     searchTerm: "",
@@ -97,6 +113,7 @@ export default function PastAppointments() {
       if (data.is_verified) {
         try {
           const { data: appointmentsData } = await api.get('/appointments');
+          const { data: prescriptionsData } = await api.get('/prescriptions');
           const mappedAppointments = appointmentsData.map((appt: any) => ({
             ...appt,
             id: appt._id,
@@ -107,7 +124,24 @@ export default function PastAppointments() {
             } : null
           }));
 
+          const groupedPrescriptions: Record<string, Prescription[]> = {};
+          if (Array.isArray(prescriptionsData)) {
+            prescriptionsData.forEach((prescription: Prescription) => {
+              const appointmentId =
+                typeof prescription.appointment_id === 'string'
+                  ? prescription.appointment_id
+                  : prescription.appointment_id?._id;
+
+              if (!appointmentId) return;
+              if (!groupedPrescriptions[appointmentId]) {
+                groupedPrescriptions[appointmentId] = [];
+              }
+              groupedPrescriptions[appointmentId].push(prescription);
+            });
+          }
+
           setAppointments(mappedAppointments);
+          setPrescriptionsByAppointment(groupedPrescriptions);
         } catch (error) {
           console.error("Error fetching appointments", error);
           toast.error("Failed to load past appointments");
@@ -290,6 +324,33 @@ export default function PastAppointments() {
                         <p className="text-sm text-muted-foreground">
                           Amount: ₹{appt.amount}
                         </p>
+                        <div className="text-sm mt-2">
+                          {prescriptionsByAppointment[appt.id]?.length ? (
+                            <>
+                              <p className="font-medium">Prescription History</p>
+                              {prescriptionsByAppointment[appt.id].map((prescription) => (
+                                <div key={prescription._id} className="text-muted-foreground mt-1">
+                                  {prescription.diagnosis ? (
+                                    <p>Diagnosis: {prescription.diagnosis}</p>
+                                  ) : null}
+                                  {Array.isArray(prescription.medications) && prescription.medications.length > 0 ? (
+                                    <p>
+                                      Medicines: {prescription.medications
+                                        .map((med) => [med.name, med.dosage].filter(Boolean).join(' '))
+                                        .filter(Boolean)
+                                        .join(', ')}
+                                    </p>
+                                  ) : null}
+                                  {prescription.instructions ? (
+                                    <p>Instructions: {prescription.instructions}</p>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <p className="text-muted-foreground">Prescription: Not added</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
