@@ -57,12 +57,12 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/doctor-benefits" className="hover:text-foreground transition-colors">
+                <Link to="/benefits" className="hover:text-foreground transition-colors">
                   Benefits
                 </Link>
               </li>
               <li>
-                <Link to="/doctor-faq" className="hover:text-foreground transition-colors">
+                <Link to="/faq" className="hover:text-foreground transition-colors">
                   FAQ
                 </Link>
               </li>
@@ -94,10 +94,10 @@ export function Footer() {
             © {new Date().getFullYear()} MediConnect. All rights reserved.
           </p>
           <div className="flex gap-6 text-sm text-muted-foreground">
-            <Link to="/privacy" className="hover:text-foreground transition-colors">
+            <Link to="/privacy-policy" className="hover:text-foreground transition-colors">
               Privacy Policy
             </Link>
-            <Link to="/terms" className="hover:text-foreground transition-colors">
+            <Link to="/terms-of-service" className="hover:text-foreground transition-colors">
               Terms of Service
             </Link>
           </div>
