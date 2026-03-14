@@ -38,6 +38,19 @@ router.put('/:id/read', protect, async (req, res) => {
     }
 });
 
+// Delete a single notification
+router.delete('/:id', protect, async (req, res) => {
+    try {
+        const notif = await Notification.findById(req.params.id);
+        if (!notif) return res.status(404).json({ message: 'Notification not found' });
+        if (notif.user_id.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Not authorized' });
+        await notif.deleteOne();
+        res.json({ message: 'Notification deleted' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Mark all notifications for current user as read
 router.put('/mark-all-read', protect, async (req, res) => {
     try {

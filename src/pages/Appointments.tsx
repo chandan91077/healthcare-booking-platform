@@ -88,8 +88,12 @@ export default function Appointments() {
   });
 
   const refreshAppointments = async () => {
-    const { data } = await api.get('/appointments');
-    setAppointments(data.map(mapAppointment));
+    try {
+      const { data } = await api.get('/appointments');
+      setAppointments(data.map(mapAppointment));
+    } catch (error) {
+      console.error('Error refreshing appointments:', error);
+    }
   };
 
   const handleUpdateStatus = async (appointmentId: string, status: string) => {
@@ -160,6 +164,37 @@ export default function Appointments() {
     }
   }, [user, role, authLoading]);
 
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || (!user?._id && !user?.id)) {
+      return;
+    }
+
+    const refresh = () => {
+      refreshAppointments();
+    };
+
+    const intervalId = window.setInterval(refresh, 20000);
+
+    const onFocus = () => {
+      refresh();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refresh();
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [authLoading, isAuthenticated, user]);
+
   const upcomingAppointments = appointments.filter(
     (a) => (a.status === "confirmed" || a.status === "pending") && (isFuture(new Date(a.appointment_date)) || isToday(new Date(a.appointment_date)))
   );
@@ -226,7 +261,6 @@ export default function Appointments() {
         <Input value={zoomLink} onChange={(e: any) => setZoomLink(e.target.value)} placeholder="Enter or generate link" className="w-52" />
         <select value={provider} onChange={(e) => setProvider(e.target.value)} className="input input-sm">
           <option value="zoom">Zoom</option>
-          <option value="meet">Google Meet</option>
         </select>
         <input type="datetime-local" value={scheduledAt || ''} onChange={(e) => setScheduledAt(e.target.value || null)} className="input input-sm" />
         <Button size="sm" onClick={generate} disabled={loading}>Generate</Button>

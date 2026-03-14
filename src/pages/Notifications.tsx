@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { Trash2, X } from "lucide-react";
 
 export default function NotificationsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuthContext();
@@ -44,12 +45,43 @@ export default function NotificationsPage() {
     }
   };
 
+  const deleteOne = async (id: string) => {
+    try {
+      await api.delete(`/notifications/${id}`);
+      setNotifications((prev) => prev.filter((n) => n._id !== id));
+    } catch (err) {
+      console.error('Error deleting notification', err);
+      toast({ title: 'Failed to delete notification' });
+    }
+  };
+
+  const clearAll = async () => {
+    try {
+      await api.delete('/notifications/clear-all');
+      setNotifications([]);
+      toast({ title: 'All notifications cleared' });
+    } catch (err) {
+      console.error('Error clearing notifications', err);
+      toast({ title: 'Failed to clear notifications' });
+    }
+  };
+
   return (
     <MainLayout>
       <div className="container py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="font-heading text-2xl font-semibold">Notifications</h1>
-          <Button onClick={markAllRead} size="sm">Mark all read</Button>
+          <div className="flex items-center gap-2">
+            {notifications.length > 0 && (
+              <>
+                <Button onClick={markAllRead} size="sm" variant="outline">Mark all read</Button>
+                <Button onClick={clearAll} size="sm" variant="destructive" className="flex items-center gap-1">
+                  <Trash2 className="h-4 w-4" />
+                  Clear all
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -65,13 +97,23 @@ export default function NotificationsPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="mb-2">{n.message}</p>
-                  <div className="flex gap-2">
-                    {!n.read && <Button size="sm" onClick={() => markRead(n._id)}>Mark read</Button>}
-                    {(n.data?.zoom_join_url || n.data?.url || n.url) && (
-                      <Button size="sm" variant="ghost" asChild>
-                        <a href={n.data?.zoom_join_url || n.data?.url || n.url} target="_blank" rel="noopener noreferrer">Open Link</a>
-                      </Button>
-                    )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-2">
+                      {!n.read && <Button size="sm" onClick={() => markRead(n._id)}>Mark read</Button>}
+                      {(n.data?.zoom_join_url || n.data?.url || n.url) && (
+                        <Button size="sm" variant="ghost" asChild>
+                          <a href={n.data?.zoom_join_url || n.data?.url || n.url} target="_blank" rel="noopener noreferrer">Open Link</a>
+                        </Button>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => deleteOne(n._id)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
