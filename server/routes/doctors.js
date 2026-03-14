@@ -1,12 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const Doctor = require('../models/Doctor');
+const Notification = require('../models/Notification');
 const { protect } = require('../middleware/authMiddleware');
 
 // Register a doctor
 router.post('/', protect, async (req, res) => {
     try {
         const doctor = await Doctor.create(req.body);
+
+        // Send a greeting notification confirming profile submission
+        try {
+            await Notification.create({
+                user_id: req.user._id,
+                type: 'welcome',
+                message: `Your doctor profile has been submitted successfully! 🩺 Our team will review your credentials and verify your account within 1-2 business days. You'll be notified once approved.`,
+                data: { doctor_id: doctor._id },
+            });
+        } catch (notifError) {
+            console.error('Failed to create doctor profile notification:', notifError);
+        }
+
         res.status(201).json(doctor);
     } catch (error) {
         res.status(400).json({ message: error.message });
