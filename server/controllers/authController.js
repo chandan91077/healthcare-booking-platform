@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const jwt = require('jsonwebtoken');
 
 const generateToken = (id) => {
@@ -25,6 +26,23 @@ const registerUser = async (req, res) => {
         });
 
         if (user) {
+            // Send a welcome greeting notification
+            try {
+                const isDoctor = (role || 'patient') === 'doctor';
+                const greetingMessage = isDoctor
+                    ? `Welcome to MediConnect, Dr. ${full_name}! 🎉 Please complete your doctor profile and submit your credentials for verification. Once approved, you'll be able to start accepting patients.`
+                    : `Welcome to MediConnect, ${full_name}! 🎉 You can now search for doctors, book appointments, and manage your healthcare all in one place.`;
+
+                await Notification.create({
+                    user_id: user._id,
+                    type: 'welcome',
+                    message: greetingMessage,
+                    data: { role: user.role },
+                });
+            } catch (notifError) {
+                console.error('Failed to create welcome notification:', notifError);
+            }
+
             res.status(201).json({
                 _id: user._id,
                 full_name: user.full_name,

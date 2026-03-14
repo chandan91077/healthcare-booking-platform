@@ -30,6 +30,7 @@ import {
   Camera,
   Loader2,
   MapPin,
+  Settings,
 } from "lucide-react";
 
 interface DoctorData {
@@ -209,6 +210,37 @@ export default function DoctorDashboard() {
       fetchDoctorDashboardData();
     }
   }, [user, isLoading, isAuthenticated, role]);
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || role !== "doctor") {
+      return;
+    }
+
+    const refreshDashboard = () => {
+      fetchDoctorDashboardData();
+    };
+
+    const intervalId = window.setInterval(refreshDashboard, 20000);
+
+    const onFocus = () => {
+      refreshDashboard();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshDashboard();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [isLoading, isAuthenticated, role, user]);
 
   const handleUpdateStatus = async (appointmentId: string, status: string) => {
     try {
@@ -392,57 +424,127 @@ export default function DoctorDashboard() {
   return (
     <MainLayout>
       <div className="container py-8">
-        {/* Profile Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-6">
-            <div className="relative group">
-              <Avatar className="h-20 w-20 border-2 border-primary/20">
-                <AvatarImage
-                  src={doctorData?.profile_image_url || undefined}
-                  alt={doctorProfile?.full_name}
-                  className="object-cover"
-                />
-                <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                  {doctorProfile?.full_name?.charAt(0) || "D"}
-                </AvatarFallback>
-              </Avatar>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingPhoto}
-                className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              >
-                {uploadingPhoto ? (
-                  <Loader2 className="h-5 w-5 text-white animate-spin" />
-                ) : (
-                  <Camera className="h-5 w-5 text-white" />
-                )}
-              </button>
-            </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="font-heading text-3xl font-bold">
-                  Dr. {doctorProfile?.full_name || "Doctor"}
-                </h1>
-                <Badge className="bg-success text-success-foreground">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Verified
-                </Badge>
-              </div>
-              <p className="text-muted-foreground mt-1">
-                {doctorData?.specialization} • ₹{doctorData?.consultation_fee} per consultation
-              </p>
+        {/* Welcome Banner */}
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-heading text-3xl font-bold mb-2">
+              Welcome back, Dr. {doctorProfile?.full_name || "Doctor"}!
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your appointments and patients from your dashboard.
+            </p>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <Badge className="bg-success text-success-foreground">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Verified
+              </Badge>
+              <span className="text-sm text-muted-foreground">{doctorData?.specialization}</span>
               {(doctorData?.state || doctorData?.location) && (
-                <p className="mt-2 flex items-center text-sm text-muted-foreground gap-2"><MapPin className="h-4 w-4" />{doctorData?.state}{doctorData?.location ? ` • ${doctorData?.location}` : ''}</p>
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {doctorData?.state}{doctorData?.location ? ` • ${doctorData?.location}` : ""}
+                </span>
               )}
             </div>
           </div>
+          {/* Profile Avatar with upload */}
+          <div className="relative group flex-shrink-0">
+            <Avatar className="h-16 w-16 border-2 border-primary/20">
+              <AvatarImage
+                src={doctorData?.profile_image_url || undefined}
+                alt={doctorProfile?.full_name}
+                className="object-cover"
+              />
+              <AvatarFallback className="text-xl bg-primary/10 text-primary">
+                {doctorProfile?.full_name?.charAt(0) || "D"}
+              </AvatarFallback>
+            </Avatar>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            >
+              {uploadingPhoto ? (
+                <Loader2 className="h-5 w-5 text-white animate-spin" />
+              ) : (
+                <Camera className="h-5 w-5 text-white" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate("/appointments")}>
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-info/10 flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-info" />
+                </div>
+                <span className="font-medium">Appointments</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate("/chat")}>
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
+                  <MessageSquare className="h-6 w-6 text-success" />
+                </div>
+                <span className="font-medium">Messages</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card
+            className="hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => document.getElementById("availability-section")?.scrollIntoView({ behavior: "smooth" })}
+          >
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-primary" />
+                </div>
+                <span className="font-medium">Availability</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setShowSettlementHistory(true)}>
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
+                  <IndianRupee className="h-6 w-6 text-success" />
+                </div>
+                <span className="font-medium">Earnings</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate("/doctor/past-appointments")}>
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-warning/10 flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-warning" />
+                </div>
+                <span className="font-medium">Past Records</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate("/settings")}>
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                  <Settings className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <span className="font-medium">Settings</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Stats */}
@@ -481,18 +583,10 @@ export default function DoctorDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">₹{stats.totalEarnings}</p>
-                  <p className="text-sm text-muted-foreground">Earnings</p>
+                  <p className="text-sm text-muted-foreground">Total Earnings</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Settled ₹{earningsSummary.settledEarnings} • Unsettled ₹{earningsSummary.unsettledEarnings}
                   </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-2"
-                    onClick={() => setShowSettlementHistory(true)}
-                  >
-                    Settlement History
-                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -512,13 +606,18 @@ export default function DoctorDashboard() {
           </Card>
         </div>
 
-        {/* Today's Appointments */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Today's Appointments</CardTitle>
-            <CardDescription>{format(new Date(), "EEEE, MMMM d, yyyy")}</CardDescription>
-          </CardHeader>
-          <CardContent>
+        {/* Main Content: 2-column layout */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {/* Today's Appointments */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Today's Appointments
+              </CardTitle>
+              <CardDescription>{format(new Date(), "EEEE, MMMM d, yyyy")}</CardDescription>
+            </CardHeader>
+            <CardContent>
             {todayAppointments.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">No appointments scheduled for today</p>
             ) : (
@@ -782,14 +881,18 @@ export default function DoctorDashboard() {
               </div>
             )}
           </CardContent>
-        </Card>
+          </Card>
 
-        {/* Upcoming Appointments */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Upcoming Appointments</CardTitle>
-          </CardHeader>
-          <CardContent>
+          {/* Upcoming Appointments */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Upcoming Appointments
+              </CardTitle>
+              <CardDescription>Your scheduled consultations</CardDescription>
+            </CardHeader>
+            <CardContent>
             {upcomingAppointments.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">No upcoming appointments</p>
             ) : (
@@ -1036,7 +1139,8 @@ export default function DoctorDashboard() {
               </div>
             )}
           </CardContent>
-        </Card>
+          </Card>
+        </div>
 
         {/* Past Appointments */}
         <Card className="mb-8">
@@ -1059,7 +1163,9 @@ export default function DoctorDashboard() {
         </Card>
 
         {/* Availability Management */}
-        {doctorData && <DoctorAvailability doctorId={doctorData._id || doctorData.id} />}
+        <div id="availability-section">
+          {doctorData && <DoctorAvailability doctorId={doctorData._id || doctorData.id} />}
+        </div>
       </div>
 
       <Dialog open={showSettlementHistory} onOpenChange={setShowSettlementHistory}>
