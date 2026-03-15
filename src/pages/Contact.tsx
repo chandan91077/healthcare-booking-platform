@@ -21,7 +21,7 @@ export default function Contact() {
                   <Mail className="h-4 w-4" /> Email
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">support@mediconnect.com</CardContent>
+              <CardContent className="text-sm text-muted-foreground">chandany67071@gmail.com</CardContent>
             </Card>
 
             <Card>
@@ -30,7 +30,7 @@ export default function Contact() {
                   <Phone className="h-4 w-4" /> Phone
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">+1 (555) 123-4567</CardContent>
+              <CardContent className="text-sm text-muted-foreground">9682000334</CardContent>
             </Card>
 
             <Card>

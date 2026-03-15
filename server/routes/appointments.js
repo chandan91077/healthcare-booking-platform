@@ -189,9 +189,9 @@ router.post('/', protect, async (req, res) => {
             doctor_fee: Number(doctorFee.toFixed(2)),
             platform_fee: Number(platformFee.toFixed(2)),
             status: appointment_type === 'emergency' ? 'confirmed' : 'pending',
-            payment_status: appointment_type === 'emergency' ? 'paid' : 'pending',
-            chat_unlocked: appointment_type === 'emergency',
-            video_unlocked: appointment_type === 'emergency',
+            payment_status: 'pending',
+            chat_unlocked: false,
+            video_unlocked: false,
         });
 
         try {
