@@ -1,3 +1,5 @@
+// Email service:
+// Sends transactional emails via SendGrid, Mailgun, or SMTP based on environment config.
 const fs = require('fs');
 const path = require('path');
 

@@ -1,3 +1,5 @@
+// Cron utilities:
+// Contains scheduled/background jobs such as auto-cancel for unpaid appointments.
 const cron = require('node-cron');
 const Appointment = require('../models/Appointment');
 

@@ -1,0 +1,7 @@
+Hi Dr. {{name}},
+
+We received your doctor profile submission successfully.
+Our team will review your credentials and update your verification status within 1-2 business days.
+
+Regards,
+MediConnect Team

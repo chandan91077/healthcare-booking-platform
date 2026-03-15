@@ -1,8 +1,12 @@
+// Doctors route:
+// Handles doctor profiles, admin verification workflow, and doctor status communication.
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Doctor = require('../models/Doctor');
 const Notification = require('../models/Notification');
+const { sendEmail } = require('../services/emailService');
+const { renderEmailWithFallback } = require('../utils/emailTemplates');
 const { protect } = require('../middleware/authMiddleware');
 
 // Register a doctor
@@ -10,16 +14,26 @@ router.post('/', protect, async (req, res) => {
     try {
         const doctor = await Doctor.create(req.body);
 
-        // Send a greeting notification confirming profile submission
         try {
-            await Notification.create({
-                user_id: req.user._id,
-                type: 'welcome',
-                message: `Your doctor profile has been submitted successfully! 🩺 Our team will review your credentials and verify your account within 1-2 business days. You'll be notified once approved.`,
-                data: { doctor_id: doctor._id },
-            });
+            // Doctor profile submission acknowledgment is email-only.
+            const doctorName = req.user?.full_name || 'Doctor';
+            const doctorEmail = req.user?.email || '';
+            if (doctorEmail) {
+                // Use localized template; helper provides generic fallback if missing.
+                const resolved = renderEmailWithFallback({
+                    locale: req.user?.locale || 'en',
+                    templateName: 'doctor_submission_received',
+                    context: { name: doctorName },
+                });
+                await sendEmail({
+                    to: doctorEmail,
+                    subject: 'MediConnect: Doctor Profile Submission Received',
+                    text: resolved.text,
+                    html: resolved.html,
+                });
+            }
         } catch (notifError) {
-            console.error('Failed to create doctor profile notification:', notifError);
+            console.error('Failed to send doctor profile submission email:', notifError);
         }
 
         res.status(201).json(doctor);
@@ -130,7 +144,86 @@ router.put('/:id', protect, async (req, res) => {
         //    return res.status(401).json({ message: 'Not authorized' });
         // }
 
-        const updatedDoctor = await Doctor.findByIdAndUpdate(doctor._id, req.body, { new: true });
+        const previousVerificationStatus = doctor.verification_status;
+        const previousIsVerified = doctor.is_verified;
+        const updatedDoctor = await Doctor.findByIdAndUpdate(doctor._id, req.body, { new: true })
+            .populate('user_id', 'full_name email');
+
+        try {
+            // Detect verification transition so email/notification is sent once per change.
+            const updatedStatus = updatedDoctor?.verification_status;
+            const becameVerified =
+                updatedStatus === 'verified' &&
+                (previousVerificationStatus !== 'verified' || previousIsVerified !== true);
+            const becameRejected =
+                updatedStatus === 'rejected' && previousVerificationStatus !== 'rejected';
+
+            const targetUser = updatedDoctor?.user_id;
+            const doctorName =
+                (targetUser && targetUser.full_name) ? targetUser.full_name : 'Doctor';
+            const doctorEmail =
+                (targetUser && targetUser.email) ? targetUser.email : '';
+
+            if (doctorEmail && (becameVerified || becameRejected)) {
+                if (becameVerified) {
+                    // Keep in-app notification for status change events.
+                    await Notification.create({
+                        user_id: updatedDoctor.user_id._id || updatedDoctor.user_id,
+                        type: 'doctor_verified',
+                        message: 'Your doctor profile has been verified. You can now accept patients.',
+                        data: { doctor_id: updatedDoctor._id },
+                    });
+
+                    const resolved = renderEmailWithFallback({
+                        locale: targetUser?.locale || 'en',
+                        templateName: 'doctor_verified',
+                        context: { name: doctorName },
+                    });
+                    await sendEmail({
+                        to: doctorEmail,
+                        subject: 'MediConnect: Doctor Profile Verified',
+                        text: resolved.text,
+                        html: resolved.html,
+                    });
+                }
+
+                if (becameRejected) {
+                    const rejectionReason = (updatedDoctor.rejection_reason || '').toString().trim();
+                    const reasonHtml = rejectionReason
+                        ? `<p><b>Reason:</b> ${rejectionReason}</p>`
+                        : '';
+
+                    const resolved = renderEmailWithFallback({
+                        locale: targetUser?.locale || 'en',
+                        templateName: 'doctor_rejected',
+                        context: {
+                            name: doctorName,
+                            rejection_reason_block: rejectionReason
+                                ? `Reason: ${rejectionReason}\n`
+                                : '',
+                            rejection_reason_html: reasonHtml,
+                        },
+                    });
+
+                    await Notification.create({
+                        user_id: updatedDoctor.user_id._id || updatedDoctor.user_id,
+                        type: 'doctor_rejected',
+                        message: 'Your doctor profile verification was not approved. Please review and resubmit.',
+                        data: { doctor_id: updatedDoctor._id, rejection_reason: rejectionReason },
+                    });
+
+                    await sendEmail({
+                        to: doctorEmail,
+                        subject: 'MediConnect: Doctor Profile Not Approved',
+                        text: resolved.text,
+                        html: resolved.html,
+                    });
+                }
+            }
+        } catch (notifyError) {
+            console.error('Failed to send doctor verification status email/notification:', notifyError);
+        }
+
         res.json(updatedDoctor);
     } catch (error) {
         res.status(500).json({ message: error.message });

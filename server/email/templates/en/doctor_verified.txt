@@ -1,0 +1,7 @@
+Hi Dr. {{name}},
+
+Congratulations! Your doctor profile has been verified.
+You can now start accepting appointments on MediConnect.
+
+Regards,
+MediConnect Team

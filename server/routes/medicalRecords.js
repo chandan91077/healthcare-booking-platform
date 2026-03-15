@@ -1,3 +1,5 @@
+// Medical records route:
+// Allows patients to upload, view, and manage their own medical documents.
 const express = require('express');
 const router = express.Router();
 const MedicalRecord = require('../models/MedicalRecord');

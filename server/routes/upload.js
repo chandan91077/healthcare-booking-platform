@@ -1,3 +1,5 @@
+// Upload route:
+// Receives file uploads and returns persistent storage URLs.
 const express = require('express');
 const router = express.Router();
 const upload = require('../config/s3'); // The Multer-S3 config

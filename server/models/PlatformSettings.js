@@ -1,3 +1,5 @@
+// PlatformSettings model:
+// Stores global configurable values such as platform fee.
 const mongoose = require('mongoose');
 
 const platformSettingsSchema = new mongoose.Schema(

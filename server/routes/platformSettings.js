@@ -1,3 +1,5 @@
+// Platform settings route:
+// Exposes platform fee configuration for admin and public read access.
 const express = require('express');
 const router = express.Router();
 const PlatformSettings = require('../models/PlatformSettings');

@@ -1,0 +1,8 @@
+Hi Dr. {{name}},
+
+Your doctor profile verification was not approved at this time.
+{{rejection_reason_block}}
+Please update your details and resubmit for review.
+
+Regards,
+MediConnect Team

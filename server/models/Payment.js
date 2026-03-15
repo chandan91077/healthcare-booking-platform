@@ -1,3 +1,5 @@
+// Payment model:
+// Tracks appointment payments, provider references, and settlement progress.
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({

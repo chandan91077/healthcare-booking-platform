@@ -1,3 +1,5 @@
+// Message model:
+// Represents chat messages (text/image/file) linked to appointments.
 const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema({

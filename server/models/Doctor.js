@@ -1,3 +1,5 @@
+// Doctor model:
+// Captures doctor profile, pricing, verification status, and credential metadata.
 const mongoose = require('mongoose');
 
 const doctorSchema = new mongoose.Schema({

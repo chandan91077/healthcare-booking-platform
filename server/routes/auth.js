@@ -1,3 +1,5 @@
+// Auth route:
+// Exposes register/login and authenticated profile endpoints.
 const express = require('express');
 const router = express.Router();
 const { registerUser, authUser, getUserProfile, updateUserProfile } = require('../controllers/authController');

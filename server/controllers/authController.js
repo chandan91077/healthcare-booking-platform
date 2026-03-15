@@ -1,7 +1,11 @@
+// Auth controller:
+// Implements registration, login, and profile read/update behaviors.
 const User = require('../models/User');
-const Notification = require('../models/Notification');
 const jwt = require('jsonwebtoken');
+const { sendEmail } = require('../services/emailService');
+const { renderEmailWithFallback } = require('../utils/emailTemplates');
 
+// JWT used by client after login/register.
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
         expiresIn: '30d',
@@ -26,21 +30,28 @@ const registerUser = async (req, res) => {
         });
 
         if (user) {
-            // Send a welcome greeting notification
             try {
+                // Account creation sends email only (no in-app welcome notification).
                 const isDoctor = (role || 'patient') === 'doctor';
-                const greetingMessage = isDoctor
-                    ? `Welcome to MediConnect, Dr. ${full_name}! 🎉 Please complete your doctor profile and submit your credentials for verification. Once approved, you'll be able to start accepting patients.`
-                    : `Welcome to MediConnect, ${full_name}! 🎉 You can now search for doctors, book appointments, and manage your healthcare all in one place.`;
+                const subject = isDoctor
+                    ? 'Welcome to MediConnect Doctor Network'
+                    : 'Welcome to MediConnect';
 
-                await Notification.create({
-                    user_id: user._id,
-                    type: 'welcome',
-                    message: greetingMessage,
-                    data: { role: user.role },
+                // Template first, with generic fallback from helper if file is missing.
+                const resolved = renderEmailWithFallback({
+                    locale: user.locale || 'en',
+                    templateName: isDoctor ? 'welcome_doctor' : 'welcome_patient',
+                    context: { name: full_name },
+                });
+
+                await sendEmail({
+                    to: user.email,
+                    subject,
+                    text: resolved.text,
+                    html: resolved.html,
                 });
             } catch (notifError) {
-                console.error('Failed to create welcome notification:', notifError);
+                console.error('Failed to send welcome email:', notifError);
             }
 
             res.status(201).json({

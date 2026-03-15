@@ -1,3 +1,5 @@
+// Payments route:
+// Handles payment creation/verification and settlement reporting for admin/doctor views.
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');

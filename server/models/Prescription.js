@@ -1,3 +1,5 @@
+// Prescription model:
+// Stores doctor-issued prescriptions, medicines, notes, and generated PDF URL.
 const mongoose = require('mongoose');
 
 const prescriptionSchema = new mongoose.Schema({
