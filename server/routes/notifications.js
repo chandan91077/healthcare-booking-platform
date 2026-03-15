@@ -26,6 +26,26 @@ router.get('/unread-count', protect, async (req, res) => {
     }
 });
 
+// Mark all notifications for current user as read
+router.put('/mark-all-read', protect, async (req, res) => {
+    try {
+        const result = await Notification.updateMany({ user_id: req.user._id, read: false }, { $set: { read: true } });
+        res.json({ modifiedCount: result.modifiedCount || result.nModified || 0 });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Clear all notifications for current user
+router.delete('/clear-all', protect, async (req, res) => {
+    try {
+        const result = await Notification.deleteMany({ user_id: req.user._id });
+        res.json({ deletedCount: result.deletedCount || 0 });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Mark a notification as read
 router.put('/:id/read', protect, async (req, res) => {
     try {
@@ -48,26 +68,6 @@ router.delete('/:id', protect, async (req, res) => {
         if (notif.user_id.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Not authorized' });
         await notif.deleteOne();
         res.json({ message: 'Notification deleted' });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-});
-
-// Mark all notifications for current user as read
-router.put('/mark-all-read', protect, async (req, res) => {
-    try {
-        const result = await Notification.updateMany({ user_id: req.user._id, read: false }, { $set: { read: true } });
-        res.json({ modifiedCount: result.modifiedCount || result.nModified || 0 });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-});
-
-// Clear all notifications for current user
-router.delete('/clear-all', protect, async (req, res) => {
-    try {
-        const result = await Notification.deleteMany({ user_id: req.user._id });
-        res.json({ deletedCount: result.deletedCount || 0 });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

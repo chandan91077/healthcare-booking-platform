@@ -194,6 +194,54 @@ router.post('/', protect, async (req, res) => {
             video_unlocked: appointment_type === 'emergency',
         });
 
+        try {
+            const Notification = require('../models/Notification');
+            const doctorUser = await User.findById(doctor.user_id).select(
+                'full_name email locale'
+            );
+            const patientName = formatPatientName(req.user.full_name);
+            const appointmentTypeLabel =
+                appointment_type === 'emergency' ? 'emergency' : 'scheduled';
+
+            if (doctorUser?._id) {
+                await Notification.create({
+                    user_id: doctorUser._id,
+                    type: 'new_appointment',
+                    message: `New ${appointmentTypeLabel} appointment booked by ${patientName} on ${appointment_date} at ${appointment_time}.`,
+                    data: {
+                        appointment_id: appointment._id,
+                        appointment_type: appointmentTypeLabel,
+                        appointment_date,
+                        appointment_time,
+                        patient_id,
+                    },
+                });
+            }
+
+            if (doctorUser?.email) {
+                const resolved = renderEmailWithFallback({
+                    locale: doctorUser.locale || 'en',
+                    templateName: 'new_appointment_doctor',
+                    context: {
+                        doctor: doctorUser.full_name || 'Doctor',
+                        patient: patientName,
+                        date: appointment_date,
+                        time: appointment_time,
+                        type: appointmentTypeLabel,
+                    },
+                });
+
+                await sendEmail({
+                    to: doctorUser.email,
+                    subject: `New Appointment Booked - ${appointment_date} ${appointment_time}`,
+                    text: resolved.text,
+                    html: resolved.html,
+                });
+            }
+        } catch (notifyErr) {
+            console.error('Failed to notify doctor for new appointment', notifyErr);
+        }
+
         res.status(201).json(appointment);
     } catch (error) {
         console.error(error);
