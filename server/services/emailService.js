@@ -3,8 +3,15 @@
 const fs = require('fs');
 const path = require('path');
 
+function _errorMessage(err, fallback) {
+    return err?.response?.body?.errors?.[0]?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        fallback;
+}
+
 // provider: sendgrid | mailgun | smtp
-async function sendEmail({ to, subject, text, html }) {
+async function sendEmailDetailed({ to, subject, text, html }) {
     const provider = process.env.EMAIL_PROVIDER || '';
 
     if (provider === 'sendgrid' && process.env.SENDGRID_API_KEY) {
@@ -19,10 +26,14 @@ async function sendEmail({ to, subject, text, html }) {
                 html,
             };
             await sgMail.send(msg);
-            return true;
+            return { ok: true, provider: 'sendgrid' };
         } catch (err) {
             console.error('SendGrid send failed', err);
-            // fallthrough to try other providers
+            return {
+                ok: false,
+                provider: 'sendgrid',
+                reason: _errorMessage(err, 'SendGrid send failed'),
+            };
         }
     }
 
@@ -39,9 +50,14 @@ async function sendEmail({ to, subject, text, html }) {
                 text,
                 html,
             });
-            return true;
+            return { ok: true, provider: 'mailgun' };
         } catch (err) {
             console.error('Mailgun send failed', err);
+            return {
+                ok: false,
+                provider: 'mailgun',
+                reason: _errorMessage(err, 'Mailgun send failed'),
+            };
         }
     }
 
@@ -69,15 +85,29 @@ async function sendEmail({ to, subject, text, html }) {
                 text,
                 html,
             });
-            return true;
+            return { ok: true, provider: 'smtp' };
         } catch (err) {
             console.error('SMTP send failed', err);
+            return {
+                ok: false,
+                provider: 'smtp',
+                reason: _errorMessage(err, 'SMTP send failed'),
+            };
         }
     }
 
     // No provider configured
     console.warn('No email provider configured or all providers failed');
-    return false;
+    return {
+        ok: false,
+        provider: provider || 'none',
+        reason: 'No email provider configured or all providers failed',
+    };
 }
 
-module.exports = { sendEmail };
+async function sendEmail(payload) {
+    const result = await sendEmailDetailed(payload);
+    return result.ok;
+}
+
+module.exports = { sendEmail, sendEmailDetailed };

@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const Notification = require('../models/Notification');
 const User = require('../models/User');
-const { sendEmail } = require('../services/emailService');
+const { sendEmailDetailed } = require('../services/emailService');
 const { protect } = require('../middleware/authMiddleware');
 
 function buildRecipientInfo(user) {
@@ -148,15 +148,15 @@ router.post('/admin/broadcast', protect, async (req, res) => {
                         throw new Error('Missing email address.');
                     }
 
-                    const sent = await sendEmail({
+                    const result = await sendEmailDetailed({
                         to: targetUser.email,
                         subject,
                         text,
                         html,
                     });
 
-                    if (!sent) {
-                        throw new Error('Email delivery failed.');
+                    if (!result.ok) {
+                        throw new Error(result.reason || 'Email delivery failed.');
                     }
 
                     return buildRecipientInfo(targetUser);
