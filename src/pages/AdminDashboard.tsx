@@ -429,11 +429,10 @@ export default function AdminDashboard() {
 
       const recipients = Number(data?.recipients || 0);
       const inAppSent = Number(data?.in_app_sent || 0);
-      const emailSent = Number(data?.email_sent || 0);
-      const emailFailed = Number(data?.email_failed || 0);
+      const emailQueued = Number(data?.email_queued || 0);
 
       toast.success(
-        `Update sent. Recipients: ${recipients}, In-app: ${inAppSent}, Email: ${emailSent}, Email failed: ${emailFailed}`
+        `Update sent. Recipients: ${recipients}, In-app: ${inAppSent}, Email queued: ${emailQueued}`
       );
       setUpdateMessage("");
     } catch (error: any) {
