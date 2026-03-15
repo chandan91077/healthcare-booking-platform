@@ -418,7 +418,12 @@ router.put('/:id/permissions', protect, async (req, res) => {
                                     appointment_date: appointment.appointment_date,
                                     appointment_time: appointment.appointment_time,
                                 });
-                                appointment.video = newMeeting;
+                                appointment.video = {
+                                    ...newMeeting,
+                                    enabled: true,
+                                    enabledAt: new Date(),
+                                    doctorInCall: false,
+                                };
                                 appointment.zoom_join_url = newMeeting.patientJoinUrl;
                             } catch (zoomErr) {
                                 console.error('Failed to create Zoom meeting on video unlock:', zoomErr);
@@ -725,6 +730,7 @@ router.patch('/:id/refresh-zoom-meeting', protect, async (req, res) => {
             enabledAt: appointment.video.enabledAt,
             doctorInCall: appointment.video.doctorInCall,
         };
+        appointment.zoom_join_url = zoomMeeting.patientJoinUrl || null;
         await appointment.save();
 
         res.json({

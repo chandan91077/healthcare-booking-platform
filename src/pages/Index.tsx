@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useAuthContext } from "@/contexts/AuthContext";
 import {
   Heart,
   Shield,
@@ -57,6 +58,8 @@ const stats = [
 ];
 
 export default function Index() {
+  const { isAuthenticated } = useAuthContext();
+
   return (
     <MainLayout>
       {/* Hero Section */}
@@ -82,12 +85,14 @@ export default function Index() {
               consultations, and manage your health—all in one place.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="gradient-accent text-white border-0" asChild>
-                <Link to="/auth?mode=signup">
-                  Get Started Free
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
+              {!isAuthenticated && (
+                <Button size="lg" className="gradient-accent text-white border-0" asChild>
+                  <Link to="/auth?mode=signup">
+                    Get Started Free
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </Button>
+              )}
               <Button
                 size="lg"
                 variant="outline"
@@ -164,7 +169,13 @@ export default function Index() {
           </div>
           <div className="grid md:grid-cols-4 gap-8">
             {[
-              { step: "1", title: "Sign Up", desc: "Create your free account" },
+              {
+                step: "1",
+                title: isAuthenticated ? "Account Ready" : "Sign Up",
+                desc: isAuthenticated
+                  ? "You are ready to book care"
+                  : "Create your free account",
+              },
               { step: "2", title: "Find Doctor", desc: "Browse verified specialists" },
               { step: "3", title: "Book & Pay", desc: "Schedule and pay securely" },
               { step: "4", title: "Consult", desc: "Connect via video or chat" },
@@ -213,12 +224,14 @@ export default function Index() {
                   </li>
                 ))}
               </ul>
-              <Button size="lg" asChild>
-                <Link to="/auth?mode=signup&role=doctor">
-                  Register as Doctor
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
+              {!isAuthenticated && (
+                <Button size="lg" asChild>
+                  <Link to="/auth?mode=signup&role=doctor">
+                    Register as Doctor
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </Button>
+              )}
             </div>
             <div className="relative">
               <div className="aspect-square rounded-2xl gradient-hero p-8 flex items-center justify-center">
@@ -241,15 +254,19 @@ export default function Index() {
           </h2>
           <p className="text-white/80 max-w-2xl mx-auto mb-8">
             Join thousands of patients who trust MediConnect for their healthcare needs.
-            Sign up today and get your first consultation.
+            {isAuthenticated
+              ? ' Book your next consultation in just a few clicks.'
+              : ' Sign up today and get your first consultation.'}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="bg-white text-primary hover:bg-white/90" asChild>
-              <Link to="/auth?mode=signup">
-                Create Free Account
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
+            {!isAuthenticated && (
+              <Button size="lg" className="bg-white text-primary hover:bg-white/90" asChild>
+                <Link to="/auth?mode=signup">
+                  Create Free Account
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+            )}
             <Button
               size="lg"
               variant="outline"

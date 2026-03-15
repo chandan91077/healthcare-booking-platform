@@ -97,7 +97,11 @@ export function Header() {
                   size="sm"
                   className="w-full justify-start text-xs"
                   onClick={() => {
-                    window.open(appt.video.patientJoinUrl, '_blank', 'noopener,noreferrer');
+                    const joinUrl = appt.video?.patientJoinUrl || appt.zoom_join_url;
+                    if (!joinUrl) {
+                      return;
+                    }
+                    window.open(joinUrl, '_blank', 'noopener,noreferrer');
                   }}
                 >
                   <Video className="h-3 w-3 mr-1" />

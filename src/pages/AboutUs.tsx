@@ -16,6 +16,7 @@ import {
     Globe,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const values = [
     {
@@ -71,6 +72,8 @@ const stats = [
 ];
 
 const AboutUs = () => {
+    const { isAuthenticated } = useAuthContext();
+
     return (
         <MainLayout>
             {/* Hero Section */}
@@ -311,14 +314,16 @@ const AboutUs = () => {
                             <Button size="lg" variant="secondary" className="font-semibold" asChild>
                                 <Link to="/doctors">Find a Doctor</Link>
                             </Button>
-                            <Button
-                                size="lg"
-                                variant="outline"
-                                className="bg-transparent text-white border-white hover:bg-white/10 font-semibold"
-                                asChild
-                            >
-                                <Link to="/auth?mode=signup">Sign Up Free</Link>
-                            </Button>
+                            {!isAuthenticated && (
+                                <Button
+                                    size="lg"
+                                    variant="outline"
+                                    className="bg-transparent text-white border-white hover:bg-white/10 font-semibold"
+                                    asChild
+                                >
+                                    <Link to="/auth?mode=signup">Sign Up Free</Link>
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>

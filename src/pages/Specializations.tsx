@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const specializations = [
     {
@@ -104,6 +105,7 @@ const features = [
 const Specializations = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const navigate = useNavigate();
+    const { isAuthenticated } = useAuthContext();
 
     const handleSearch = () => {
         if (searchQuery.trim()) {
@@ -273,9 +275,11 @@ const Specializations = () => {
                             <Button size="lg" variant="secondary" className="font-semibold" asChild>
                                 <Link to="/doctors">Find a Doctor Now</Link>
                             </Button>
-                            <Button size="lg" variant="outline" className="bg-transparent text-white border-white hover:bg-white/10" asChild>
-                                <Link to="/auth?mode=signup">Sign Up Free</Link>
-                            </Button>
+                            {!isAuthenticated && (
+                                <Button size="lg" variant="outline" className="bg-transparent text-white border-white hover:bg-white/10" asChild>
+                                    <Link to="/auth?mode=signup">Sign Up Free</Link>
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>

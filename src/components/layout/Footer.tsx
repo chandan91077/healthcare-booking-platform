@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import { Heart, Mail, Phone, MapPin } from "lucide-react";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export function Footer() {
+  const { isAuthenticated } = useAuthContext();
+
   return (
     <footer className="border-t border-border bg-card">
       <div className="container py-12">
@@ -51,11 +54,13 @@ export function Footer() {
           <div className="space-y-4">
             <h4 className="font-heading font-semibold">For Doctors</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>
-                <Link to="/auth?mode=signup&role=doctor" className="hover:text-foreground transition-colors">
-                  Join as Doctor
-                </Link>
-              </li>
+              {!isAuthenticated && (
+                <li>
+                  <Link to="/auth?mode=signup&role=doctor" className="hover:text-foreground transition-colors">
+                    Join as Doctor
+                  </Link>
+                </li>
+              )}
               <li>
                 <Link to="/benefits" className="hover:text-foreground transition-colors">
                   Benefits

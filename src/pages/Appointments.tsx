@@ -276,6 +276,7 @@ export default function Appointments() {
     // Allow doctors to access chat even if payment is pending; patient access still requires paid/confirmed/emergency
     const canAccessChat = appointment.chat_unlocked && (role === 'doctor' || appointment.payment_status === "paid" || appointment.status === 'confirmed' || appointment.appointment_type === 'emergency');
     const canAccessVideo = appointment.video_unlocked && (appointment.payment_status === "paid" || appointment.status === 'confirmed' || appointment.appointment_type === 'emergency');
+    const patientVideoJoinUrl = appointment.video?.patientJoinUrl || appointment.zoom_join_url;
     const isDoctor = role === "doctor";
     const canPrescribe = isDoctor && (appointment.status === "confirmed" || appointment.status === "completed");
     const canMarkDone = isDoctor && appointment.status === 'confirmed';
@@ -356,15 +357,15 @@ export default function Appointments() {
                 </Link>
               </Button>
             )}
-            {canAccessVideo && appointment.video?.enabled && appointment.video.patientJoinUrl && (
+            {canAccessVideo && (appointment.video?.enabled || !!appointment.zoom_join_url) && patientVideoJoinUrl && (
               <Button size="sm" variant="outline" asChild>
                 <a
-                  href={appointment.video.patientJoinUrl}
+                  href={patientVideoJoinUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => {
                     e.preventDefault();
-                    window.open(appointment.video.patientJoinUrl, '_blank', 'noopener,noreferrer');
+                    window.open(patientVideoJoinUrl, '_blank', 'noopener,noreferrer');
                   }}
                 >
                   <Video className="h-4 w-4 mr-1" />
