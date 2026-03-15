@@ -106,8 +106,7 @@ router.post('/admin/broadcast', protect, async (req, res) => {
         }
 
         const emailRecipients = sendEmailChannel
-            ? users.filter((targetUser) =>
-                targetUser.email && targetUser.notification_preferences?.email !== false)
+            ? users.filter((targetUser) => targetUser.email)
             : [];
 
         if (emailRecipients.length > 0) {
