@@ -6,7 +6,7 @@ Patient: {{patient}}
 Date: {{date}}
 Time: {{time}}
 
-Please log in to HealthLink Connect to review and manage this appointment.
+Please log in to MediConnect to review and manage this appointment.
 
 Regards,
-HealthLink Connect Team
+MediConnect Team
