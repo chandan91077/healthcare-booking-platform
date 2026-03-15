@@ -2,6 +2,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const benefits = [
   "Flexible consultation schedule",
@@ -11,6 +12,8 @@ const benefits = [
 ];
 
 export default function Benefits() {
+  const { isAuthenticated } = useAuthContext();
+
   return (
     <MainLayout>
       <section className="container py-12 md:py-16">
@@ -30,11 +33,13 @@ export default function Benefits() {
                   <li key={item}>{item}</li>
                 ))}
               </ul>
-              <div className="mt-6">
-                <Button asChild>
-                  <Link to="/auth?mode=signup&role=doctor">Join as Doctor</Link>
-                </Button>
-              </div>
+              {!isAuthenticated && (
+                <div className="mt-6">
+                  <Button asChild>
+                    <Link to="/auth?mode=signup&role=doctor">Join as Doctor</Link>
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

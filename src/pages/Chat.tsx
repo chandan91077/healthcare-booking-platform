@@ -66,6 +66,7 @@ export default function Chat() {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [videoUpdating, setVideoUpdating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasAutoScrolledInitiallyRef = useRef(false);
@@ -300,6 +301,36 @@ export default function Chat() {
     }
   };
 
+  const toggleVideo = async () => {
+    if (!appointment) return;
+
+    setVideoUpdating(true);
+    try {
+      await api.put(`/appointments/${appointment._id}/permissions`, {
+        video_unlocked: !appointment.video_unlocked,
+        auto_send: !appointment.video_unlocked,
+      });
+      await fetchAppointmentAndMessages();
+      toast.success(
+        appointment.video_unlocked ? 'Video disabled' : 'Video enabled',
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update video access');
+    } finally {
+      setVideoUpdating(false);
+    }
+  };
+
+  const joinVideoUrl = role === 'doctor'
+    ? appointment.video?.doctorJoinUrl || appointment.zoom_join_url
+    : appointment.video?.patientJoinUrl || appointment.zoom_join_url;
+
+  const canJoinVideo =
+    appointment.video_unlocked &&
+    (appointment.video?.enabled || Boolean(appointment.zoom_join_url)) &&
+    Boolean(joinVideoUrl);
+
   // No early return: allow read access even when chat is locked. Input will be disabled for patients if locked.
 
 
@@ -334,27 +365,44 @@ export default function Chat() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {appointment.video?.enabled && appointment.video.patientJoinUrl && (
+                {canJoinVideo && joinVideoUrl && (
                   <Button variant="outline" asChild>
                     <a
-                      href={appointment.video.patientJoinUrl}
+                      href={joinVideoUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => {
                         e.preventDefault();
-                        window.open(appointment.video.patientJoinUrl, '_blank', 'noopener,noreferrer');
+                        window.open(joinVideoUrl, '_blank', 'noopener,noreferrer');
                       }}
+                      aria-label="Join video consultation"
+                      title="Join video consultation"
                     >
-                      <Video className="h-4 w-4 mr-2" />
-                      Join Video
+                      <Video className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Join Video</span>
                     </a>
                   </Button>
                 )}
 
                 {role === 'doctor' && (
-                  <Button variant="outline" onClick={toggleChat} className="ml-2">
-                    {appointment.chat_unlocked ? 'Disable Chat' : 'Enable Chat'}
-                  </Button>
+                  <>
+                    <Button
+                      variant={appointment.video_unlocked ? 'destructive' : 'outline'}
+                      onClick={toggleVideo}
+                      disabled={videoUpdating}
+                      className="ml-2"
+                    >
+                      <Video className="h-4 w-4 mr-2" />
+                      {videoUpdating
+                        ? 'Updating Video...'
+                        : appointment.video_unlocked
+                            ? 'Disable Video'
+                            : 'Enable Video'}
+                    </Button>
+                    <Button variant="outline" onClick={toggleChat}>
+                      {appointment.chat_unlocked ? 'Disable Chat' : 'Enable Chat'}
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
