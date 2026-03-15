@@ -1,3 +1,5 @@
+// Appointment model:
+// Stores booking, payment, chat/video permission, and lifecycle status data.
 const mongoose = require('mongoose');
 
 const appointmentSchema = new mongoose.Schema({

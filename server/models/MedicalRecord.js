@@ -1,3 +1,5 @@
+// MedicalRecord model:
+// Stores patient-uploaded documents and metadata for record sharing workflows.
 const mongoose = require('mongoose');
 
 const medicalRecordSchema = new mongoose.Schema(

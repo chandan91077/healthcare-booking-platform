@@ -1,3 +1,5 @@
+// Zoom service:
+// Manages Zoom OAuth token lifecycle and meeting creation/fetch operations.
 const axios = require('axios');
 
 class ZoomService {

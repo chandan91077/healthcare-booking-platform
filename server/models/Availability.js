@@ -1,3 +1,5 @@
+// Availability model:
+// Defines weekly doctor time slots used during appointment scheduling.
 const mongoose = require('mongoose');
 
 const availabilitySchema = new mongoose.Schema({

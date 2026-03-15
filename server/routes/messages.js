@@ -1,3 +1,5 @@
+// Messages route:
+// Handles chat message CRUD, conversation grouping, and read-state updates.
 const express = require('express');
 const router = express.Router();
 const Message = require('../models/Message');

@@ -1,13 +1,16 @@
+// Appointments route:
+// Handles appointment lifecycle, doctor actions, permissions, and related notifications/emails.
 const express = require('express');
 const router = express.Router();
 const Appointment = require('../models/Appointment');
 const Doctor = require('../models/Doctor');
 const PlatformSettings = require('../models/PlatformSettings');
 const User = require('../models/User');
-const path = require('path');
 const { protect } = require('../middleware/authMiddleware');
 const zoomService = require('../services/zoomService');
+const { sendEmail } = require('../services/emailService');
 const { cancelExpiredUnpaidAppointments } = require('../utils/cron-jobs');
+const { renderEmailWithFallback } = require('../utils/emailTemplates');
 
 function formatDoctorName(rawName) {
     const name = String(rawName || '').trim();
@@ -381,32 +384,49 @@ router.put('/:id/permissions', protect, async (req, res) => {
                     const localePatient = (appointment.patient_id && appointment.patient_id.locale) || 'en';
                     const localeDoctor = (doctor.user_id && doctor.user_id.locale) || 'en';
 
-                    const { renderTemplate } = require('../utils/renderTemplate');
-                    const emailService = require('../services/emailService');
+                    const patientContext = {
+                        name: appointment.patient_id.full_name || appointment.patient_id.email,
+                        doctor: doctor.user_id?.full_name || 'Doctor',
+                        date: appointment.appointment_date,
+                        time: appointment.appointment_time,
+                        link: appointment.zoom_join_url,
+                    };
+                    // Email body: template-first with safe inline fallback.
+                    const patientResolved = renderEmailWithFallback({
+                        locale: localePatient,
+                        templateName: 'video_link',
+                        context: patientContext,
+                    });
 
-                    const tplBase = path.join(__dirname, '..', 'email', 'templates', localePatient, 'video_link');
-                    const msgPatientText = renderTemplate(tplBase + '.txt', { name: appointment.patient_id.full_name || appointment.patient_id.email, doctor: doctor.user_id?.full_name || 'Doctor', date: appointment.appointment_date, time: appointment.appointment_time, link: appointment.zoom_join_url });
-                    const msgPatientHtml = renderTemplate(tplBase + '.html', { name: appointment.patient_id.full_name || appointment.patient_id.email, doctor: doctor.user_id?.full_name || 'Doctor', date: appointment.appointment_date, time: appointment.appointment_time, link: appointment.zoom_join_url });
-
-                    const tplBaseDoc = path.join(__dirname, '..', 'email', 'templates', localeDoctor, 'video_link');
-                    const msgDoctorText = renderTemplate(tplBaseDoc + '.txt', { name: doctor.user_id?.full_name || doctor.user_id?.email, doctor: doctor.user_id?.full_name || 'Doctor', date: appointment.appointment_date, time: appointment.appointment_time, link: appointment.zoom_join_url });
-                    const msgDoctorHtml = renderTemplate(tplBaseDoc + '.html', { name: doctor.user_id?.full_name || doctor.user_id?.email, doctor: doctor.user_id?.full_name || 'Doctor', date: appointment.appointment_date, time: appointment.appointment_time, link: appointment.zoom_join_url });
+                    const doctorContext = {
+                        name: doctor.user_id?.full_name || doctor.user_id?.email,
+                        doctor: doctor.user_id?.full_name || 'Doctor',
+                        date: appointment.appointment_date,
+                        time: appointment.appointment_time,
+                        link: appointment.zoom_join_url,
+                    };
+                    const doctorResolved = renderEmailWithFallback({
+                        locale: localeDoctor,
+                        templateName: 'video_link',
+                        context: doctorContext,
+                    });
 
                     await Notification.create({ user_id: appointment.patient_id, type: 'video_link', message: `${doctorName} shared your video consultation link for ${appointment.appointment_date} at ${appointment.appointment_time}.`, data: { appointment_id: appointment._id, zoom_join_url: appointment.zoom_join_url } });
                     await Notification.create({ user_id: doctorUserId, type: 'video_link', message: `You shared a video consultation link with ${patientName} for ${appointment.appointment_date} at ${appointment.appointment_time}.`, data: { appointment_id: appointment._id, zoom_join_url: appointment.zoom_join_url } });
 
+                    // Do not block permission update on email failures.
                     await Promise.allSettled([
-                        emailService.sendEmail({
+                        sendEmail({
                             to: appointment.patient_id.email,
                             subject: `Video Call Link for ${appointment.appointment_date}`,
-                            text: msgPatientText,
-                            html: msgPatientHtml,
+                            text: patientResolved.text,
+                            html: patientResolved.html,
                         }),
-                        emailService.sendEmail({
+                        sendEmail({
                             to: doctor.user_id?.email,
                             subject: `Video Call Enabled - ${appointment.appointment_date}`,
-                            text: msgDoctorText,
-                            html: msgDoctorHtml,
+                            text: doctorResolved.text,
+                            html: doctorResolved.html,
                         }),
                     ]);
                 }

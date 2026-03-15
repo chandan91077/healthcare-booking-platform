@@ -1,3 +1,5 @@
+// Prescriptions route:
+// Supports doctor prescription issuance and patient/doctor prescription retrieval.
 const express = require('express');
 const router = express.Router();
 const Prescription = require('../models/Prescription');

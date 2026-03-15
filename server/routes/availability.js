@@ -1,3 +1,5 @@
+// Availability route:
+// Manages doctor availability slots used for appointment booking validation.
 const express = require('express');
 const router = express.Router();
 const Availability = require('../models/Availability');

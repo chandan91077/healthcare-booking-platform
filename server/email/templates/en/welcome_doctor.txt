@@ -1,0 +1,7 @@
+Hi Dr. {{name}},
+
+Welcome to MediConnect. Your account has been created successfully.
+Please complete your doctor profile and submit credentials for verification.
+
+Regards,
+MediConnect Team

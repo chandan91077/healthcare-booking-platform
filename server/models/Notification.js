@@ -1,3 +1,5 @@
+// Notification model:
+// Holds in-app notifications with optional payload and read-state tracking.
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({

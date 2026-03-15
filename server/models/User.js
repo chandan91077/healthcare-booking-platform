@@ -1,3 +1,5 @@
+// User model:
+// Core account identity, role, credentials, locale, and notification preferences.
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 

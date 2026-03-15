@@ -1,0 +1,7 @@
+Hi {{name}},
+
+Welcome to MediConnect. Your account has been created successfully.
+You can now search for doctors, book appointments, and manage your healthcare.
+
+Regards,
+MediConnect Team

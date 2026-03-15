@@ -1,3 +1,5 @@
+// Auth middleware:
+// Validates JWT bearer token and attaches authenticated user to request context.
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 

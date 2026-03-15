@@ -1,3 +1,5 @@
+// Template renderer:
+// Performs simple {{key}} token replacement for plain text and HTML email templates.
 const fs = require('fs');
 const path = require('path');
 
