@@ -82,30 +82,36 @@ router.post('/admin/broadcast', protect, async (req, res) => {
         const users = await User.find({ role: { $in: roles } })
             .select('_id email full_name role notification_preferences');
 
-        let inAppSent = 0;
-        let emailSent = 0;
-        let emailFailed = 0;
-
         const sendInApp = channels.includes('in_app');
         const sendEmailChannel = channels.includes('email');
 
-        for (const targetUser of users) {
-            if (sendInApp) {
-                await Notification.create({
-                    user_id: targetUser._id,
-                    type: 'admin_update',
-                    message,
-                    data: {
-                        title,
-                        audience,
-                        channels,
-                        sent_by: req.user._id,
-                    },
-                });
-                inAppSent += 1;
-            }
+        let inAppSent = 0;
+        if (sendInApp) {
+            const notificationDocs = users.map((targetUser) => ({
+                user_id: targetUser._id,
+                type: 'admin_update',
+                message,
+                data: {
+                    title,
+                    audience,
+                    channels,
+                    sent_by: req.user._id,
+                },
+            }));
 
-            if (sendEmailChannel && targetUser.email) {
+            if (notificationDocs.length > 0) {
+                const inserted = await Notification.insertMany(notificationDocs);
+                inAppSent = inserted.length;
+            }
+        }
+
+        const emailRecipients = sendEmailChannel
+            ? users.filter((targetUser) =>
+                targetUser.email && targetUser.notification_preferences?.email !== false)
+            : [];
+
+        if (emailRecipients.length > 0) {
+            setImmediate(async () => {
                 const subject = title;
                 const text = `${title}\n\n${message}`;
                 const html = `
@@ -115,27 +121,26 @@ router.post('/admin/broadcast', protect, async (req, res) => {
                     </div>
                 `;
 
-                const sent = await sendEmail({
-                    to: targetUser.email,
-                    subject,
-                    text,
-                    html,
-                });
-
-                if (sent) {
-                    emailSent += 1;
-                } else {
-                    emailFailed += 1;
+                for (const targetUser of emailRecipients) {
+                    try {
+                        await sendEmail({
+                            to: targetUser.email,
+                            subject,
+                            text,
+                            html,
+                        });
+                    } catch (emailError) {
+                        console.error('Admin broadcast email failed:', targetUser.email, emailError);
+                    }
                 }
-            }
+            });
         }
 
         return res.status(201).json({
-            message: 'Update sent successfully.',
+            message: 'Update queued successfully.',
             recipients: users.length,
             in_app_sent: inAppSent,
-            email_sent: emailSent,
-            email_failed: emailFailed,
+            email_queued: emailRecipients.length,
             audience,
             channels,
         });
