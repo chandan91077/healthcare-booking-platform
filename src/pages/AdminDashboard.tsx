@@ -112,6 +112,23 @@ interface SettlementHistoryGroup {
   settled_payments_count: number;
 }
 
+interface AdminBroadcastIssue {
+  user_id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  reason: string;
+}
+
+interface AdminBroadcastReport {
+  recipients: number;
+  in_app_sent: number;
+  in_app_failed: AdminBroadcastIssue[];
+  email_sent: number;
+  email_failed: AdminBroadcastIssue[];
+  email_skipped: AdminBroadcastIssue[];
+}
+
 export default function AdminDashboard() {
   const { user, role, isLoading, isAuthenticated } = useAuthContext();
   const navigate = useNavigate();
@@ -146,6 +163,7 @@ export default function AdminDashboard() {
   const [sendInAppUpdate, setSendInAppUpdate] = useState(true);
   const [sendEmailUpdate, setSendEmailUpdate] = useState(false);
   const [sendingAdminUpdate, setSendingAdminUpdate] = useState(false);
+  const [lastBroadcastReport, setLastBroadcastReport] = useState<AdminBroadcastReport | null>(null);
   const [paymentStats, setPaymentStats] = useState<PaymentStats>({
     totalRevenue: 0,
     totalAppointments: 0,
@@ -429,11 +447,32 @@ export default function AdminDashboard() {
 
       const recipients = Number(data?.recipients || 0);
       const inAppSent = Number(data?.in_app_sent || 0);
-      const emailQueued = Number(data?.email_queued || 0);
+      const emailSent = Number(data?.email_sent || 0);
+      const report: AdminBroadcastReport = {
+        recipients,
+        in_app_sent: inAppSent,
+        in_app_failed: Array.isArray(data?.in_app_failed) ? data.in_app_failed : [],
+        email_sent: emailSent,
+        email_failed: Array.isArray(data?.email_failed) ? data.email_failed : [],
+        email_skipped: Array.isArray(data?.email_skipped) ? data.email_skipped : [],
+      };
 
-      toast.success(
-        `Update sent. Recipients: ${recipients}, In-app: ${inAppSent}, Email queued: ${emailQueued}`
-      );
+      setLastBroadcastReport(report);
+
+      const totalIssues =
+        report.in_app_failed.length +
+        report.email_failed.length +
+        report.email_skipped.length;
+
+      if (totalIssues > 0) {
+        toast.warning(
+          `Update sent with delivery issues. In-app sent: ${inAppSent}, Email sent: ${emailSent}, Issues: ${totalIssues}`
+        );
+      } else {
+        toast.success(
+          `Update sent. Recipients: ${recipients}, In-app: ${inAppSent}, Email sent: ${emailSent}`
+        );
+      }
       setUpdateMessage("");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to send admin update");
@@ -1095,6 +1134,63 @@ export default function AdminDashboard() {
                     {sendingAdminUpdate ? "Sending..." : "Send Update"}
                   </Button>
                 </div>
+
+                {lastBroadcastReport && (
+                  <div className="space-y-4 rounded-md border p-4">
+                    <div>
+                      <p className="font-medium">Delivery Report</p>
+                      <p className="text-sm text-muted-foreground">
+                        Recipients: {lastBroadcastReport.recipients} • In-app sent: {lastBroadcastReport.in_app_sent} • Email sent: {lastBroadcastReport.email_sent}
+                      </p>
+                    </div>
+
+                    {lastBroadcastReport.email_failed.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-destructive">Email failed</p>
+                        <div className="mt-2 space-y-2">
+                          {lastBroadcastReport.email_failed.map((item) => (
+                            <div key={`email-failed-${item.user_id}-${item.email}`} className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                              <p><strong>{item.full_name || "Unknown user"}</strong> ({item.role || "user"})</p>
+                              <p>Email: {item.email || "No email"}</p>
+                              <p>Reason: {item.reason}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {lastBroadcastReport.email_skipped.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-orange-600">Email skipped</p>
+                        <div className="mt-2 space-y-2">
+                          {lastBroadcastReport.email_skipped.map((item) => (
+                            <div key={`email-skipped-${item.user_id}`} className="rounded-md border border-orange-300 bg-orange-50 p-3 text-sm">
+                              <p><strong>{item.full_name || "Unknown user"}</strong> ({item.role || "user"})</p>
+                              <p>User ID: {item.user_id || "N/A"}</p>
+                              <p>Reason: {item.reason}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {lastBroadcastReport.in_app_failed.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-destructive">App notification failed</p>
+                        <div className="mt-2 space-y-2">
+                          {lastBroadcastReport.in_app_failed.map((item) => (
+                            <div key={`in-app-failed-${item.user_id}`} className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                              <p><strong>{item.full_name || "Unknown user"}</strong> ({item.role || "user"})</p>
+                              <p>User ID: {item.user_id || "N/A"}</p>
+                              <p>Email: {item.email || "No email"}</p>
+                              <p>Reason: {item.reason}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

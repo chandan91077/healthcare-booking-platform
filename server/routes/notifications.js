@@ -7,6 +7,15 @@ const User = require('../models/User');
 const { sendEmail } = require('../services/emailService');
 const { protect } = require('../middleware/authMiddleware');
 
+function buildRecipientInfo(user) {
+    return {
+        user_id: user?._id?.toString() || '',
+        email: user?.email || '',
+        full_name: user?.full_name || '',
+        role: user?.role || '',
+    };
+}
+
 // Get notifications for current user
 router.get('/', protect, async (req, res) => {
     try {
@@ -86,60 +95,107 @@ router.post('/admin/broadcast', protect, async (req, res) => {
         const sendEmailChannel = channels.includes('email');
 
         let inAppSent = 0;
+        const inAppFailed = [];
         if (sendInApp) {
-            const notificationDocs = users.map((targetUser) => ({
-                user_id: targetUser._id,
-                type: 'admin_update',
-                message,
-                data: {
-                    title,
-                    audience,
-                    channels,
-                    sent_by: req.user._id,
-                },
-            }));
+            const inAppResults = await Promise.allSettled(
+                users.map(async (targetUser) => {
+                    await Notification.create({
+                        user_id: targetUser._id,
+                        type: 'admin_update',
+                        message,
+                        data: {
+                            title,
+                            audience,
+                            channels,
+                            sent_by: req.user._id,
+                        },
+                    });
+                    return buildRecipientInfo(targetUser);
+                })
+            );
 
-            if (notificationDocs.length > 0) {
-                const inserted = await Notification.insertMany(notificationDocs);
-                inAppSent = inserted.length;
-            }
+            inAppResults.forEach((result, index) => {
+                if (result.status === 'fulfilled') {
+                    inAppSent += 1;
+                    return;
+                }
+
+                const user = users[index] || null;
+                inAppFailed.push({
+                    ...buildRecipientInfo(user),
+                    reason: result.reason?.message || 'Failed to create app notification.',
+                });
+            });
         }
 
-        const emailRecipients = sendEmailChannel
-            ? users.filter((targetUser) => targetUser.email)
-            : [];
+        let emailSent = 0;
+        const emailFailed = [];
+        const emailSkipped = [];
 
-        if (emailRecipients.length > 0) {
-            setImmediate(async () => {
-                const subject = title;
-                const text = `${title}\n\n${message}`;
-                const html = `
-                    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
-                      <h2 style="margin-bottom: 8px;">${title}</h2>
-                      <p style="white-space: pre-line;">${message}</p>
-                    </div>
-                `;
+        if (sendEmailChannel) {
+            const subject = title;
+            const text = `${title}\n\n${message}`;
+            const html = `
+                <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
+                  <h2 style="margin-bottom: 8px;">${title}</h2>
+                  <p style="white-space: pre-line;">${message}</p>
+                </div>
+            `;
 
-                for (const targetUser of emailRecipients) {
-                    try {
-                        await sendEmail({
-                            to: targetUser.email,
-                            subject,
-                            text,
-                            html,
-                        });
-                    } catch (emailError) {
-                        console.error('Admin broadcast email failed:', targetUser.email, emailError);
+            const emailResults = await Promise.allSettled(
+                users.map(async (targetUser) => {
+                    if (!targetUser.email) {
+                        throw new Error('Missing email address.');
                     }
+
+                    const sent = await sendEmail({
+                        to: targetUser.email,
+                        subject,
+                        text,
+                        html,
+                    });
+
+                    if (!sent) {
+                        throw new Error('Email delivery failed.');
+                    }
+
+                    return buildRecipientInfo(targetUser);
+                })
+            );
+
+            emailResults.forEach((result, index) => {
+                const targetUser = users[index];
+                const info = buildRecipientInfo(targetUser);
+
+                if (result.status === 'fulfilled') {
+                    emailSent += 1;
+                    return;
                 }
+
+                const reason = result.reason?.message || 'Email delivery failed.';
+                if (!targetUser?.email) {
+                    emailSkipped.push({
+                        ...info,
+                        reason,
+                    });
+                    return;
+                }
+
+                emailFailed.push({
+                    ...info,
+                    reason,
+                });
             });
         }
 
         return res.status(201).json({
-            message: 'Update queued successfully.',
+            message: 'Update processed.',
             recipients: users.length,
             in_app_sent: inAppSent,
-            email_queued: emailRecipients.length,
+            in_app_failed: inAppFailed,
+            email_sent: emailSent,
+            email_failed: emailFailed,
+            email_skipped: emailSkipped,
             audience,
             channels,
         });
