@@ -27,6 +27,9 @@ import {
   Trash2,
   Download,
   Phone,
+  Bell,
+  Mail,
+  Send,
 } from "lucide-react";
 
 interface DoctorApplication {
@@ -137,6 +140,12 @@ export default function AdminDashboard() {
   const [platformFee, setPlatformFee] = useState(0);
   const [platformFeeInput, setPlatformFeeInput] = useState("0");
   const [savingPlatformFee, setSavingPlatformFee] = useState(false);
+  const [updateTitle, setUpdateTitle] = useState("MediConnect Update");
+  const [updateMessage, setUpdateMessage] = useState("");
+  const [updateAudience, setUpdateAudience] = useState<"doctor" | "patient" | "both">("both");
+  const [sendInAppUpdate, setSendInAppUpdate] = useState(true);
+  const [sendEmailUpdate, setSendEmailUpdate] = useState(false);
+  const [sendingAdminUpdate, setSendingAdminUpdate] = useState(false);
   const [paymentStats, setPaymentStats] = useState<PaymentStats>({
     totalRevenue: 0,
     totalAppointments: 0,
@@ -387,6 +396,50 @@ export default function AdminDashboard() {
       toast.error(error.response?.data?.message || "Failed to update platform fee");
     } finally {
       setSavingPlatformFee(false);
+    }
+  };
+
+  const handleSendAdminUpdate = async () => {
+    const title = updateTitle.trim() || "MediConnect Update";
+    const message = updateMessage.trim();
+
+    if (!message) {
+      toast.error("Please enter update message");
+      return;
+    }
+
+    const channels = [
+      ...(sendInAppUpdate ? ["in_app"] : []),
+      ...(sendEmailUpdate ? ["email"] : []),
+    ];
+
+    if (channels.length === 0) {
+      toast.error("Select at least one delivery option");
+      return;
+    }
+
+    setSendingAdminUpdate(true);
+    try {
+      const { data } = await api.post('/notifications/admin/broadcast', {
+        title,
+        message,
+        audience: updateAudience,
+        channels,
+      });
+
+      const recipients = Number(data?.recipients || 0);
+      const inAppSent = Number(data?.in_app_sent || 0);
+      const emailSent = Number(data?.email_sent || 0);
+      const emailFailed = Number(data?.email_failed || 0);
+
+      toast.success(
+        `Update sent. Recipients: ${recipients}, In-app: ${inAppSent}, Email: ${emailSent}, Email failed: ${emailFailed}`
+      );
+      setUpdateMessage("");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to send admin update");
+    } finally {
+      setSendingAdminUpdate(false);
     }
   };
 
@@ -756,6 +809,10 @@ export default function AdminDashboard() {
               <IndianRupee className="h-4 w-4" />
               Platform Fee
             </TabsTrigger>
+            <TabsTrigger value="updates" className="gap-2">
+              <Bell className="h-4 w-4" />
+              Updates
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending" className="mt-6">
@@ -962,6 +1019,83 @@ export default function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">
                   Current platform fee: ₹{platformFee}
                 </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="updates" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Send App Update</CardTitle>
+                <CardDescription>
+                  Send information to doctors, patients, or both via app notification and/or email.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Title</label>
+                  <input
+                    type="text"
+                    value={updateTitle}
+                    onChange={(e) => setUpdateTitle(e.target.value)}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    placeholder="Enter update title"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Message</label>
+                  <Textarea
+                    value={updateMessage}
+                    onChange={(e) => setUpdateMessage(e.target.value)}
+                    placeholder="Write the update you want to share"
+                    rows={5}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Send To</label>
+                  <select
+                    value={updateAudience}
+                    onChange={(e) => setUpdateAudience(e.target.value as "doctor" | "patient" | "both")}
+                    className="w-full max-w-xs border rounded-md px-3 py-2 text-sm"
+                  >
+                    <option value="doctor">Only Doctors</option>
+                    <option value="patient">Only Patients</option>
+                    <option value="both">Doctors and Patients</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Delivery Method</label>
+                  <div className="flex flex-wrap gap-4">
+                    <label className="inline-flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={sendInAppUpdate}
+                        onChange={(e) => setSendInAppUpdate(e.target.checked)}
+                      />
+                      <Bell className="h-4 w-4" />
+                      In-App Notification
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={sendEmailUpdate}
+                        onChange={(e) => setSendEmailUpdate(e.target.checked)}
+                      />
+                      <Mail className="h-4 w-4" />
+                      Email
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <Button onClick={handleSendAdminUpdate} disabled={sendingAdminUpdate}>
+                    <Send className="h-4 w-4 mr-2" />
+                    {sendingAdminUpdate ? "Sending..." : "Send Update"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

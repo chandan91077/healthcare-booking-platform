@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const { sendEmail } = require('../services/emailService');
 const { protect } = require('../middleware/authMiddleware');
 
 // Get notifications for current user
@@ -43,6 +44,103 @@ router.delete('/clear-all', protect, async (req, res) => {
         res.json({ deletedCount: result.deletedCount || 0 });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+});
+
+// Admin broadcast update (audience + channel)
+router.post('/admin/broadcast', protect, async (req, res) => {
+    try {
+        if (req.user?.role !== 'admin') {
+            return res.status(403).json({ message: 'Admin access required.' });
+        }
+
+        const allowedAudience = new Set(['doctor', 'patient', 'both']);
+        const allowedChannels = new Set(['in_app', 'email']);
+
+        const title = req.body?.title?.toString().trim() || 'MediConnect Update';
+        const message = req.body?.message?.toString().trim() || '';
+        const audience = req.body?.audience?.toString().trim() || 'both';
+
+        const rawChannels = req.body?.channels;
+        const channels = (Array.isArray(rawChannels) ? rawChannels : [rawChannels])
+            .map((channel) => channel?.toString().trim())
+            .filter((channel) => allowedChannels.has(channel));
+
+        if (!message) {
+            return res.status(400).json({ message: 'Message is required.' });
+        }
+
+        if (!allowedAudience.has(audience)) {
+            return res.status(400).json({ message: 'Invalid audience.' });
+        }
+
+        if (channels.length === 0) {
+            return res.status(400).json({ message: 'Select at least one channel.' });
+        }
+
+        const roles = audience === 'both' ? ['doctor', 'patient'] : [audience];
+        const users = await User.find({ role: { $in: roles } })
+            .select('_id email full_name role notification_preferences');
+
+        let inAppSent = 0;
+        let emailSent = 0;
+        let emailFailed = 0;
+
+        const sendInApp = channels.includes('in_app');
+        const sendEmailChannel = channels.includes('email');
+
+        for (const targetUser of users) {
+            if (sendInApp) {
+                await Notification.create({
+                    user_id: targetUser._id,
+                    type: 'admin_update',
+                    message,
+                    data: {
+                        title,
+                        audience,
+                        channels,
+                        sent_by: req.user._id,
+                    },
+                });
+                inAppSent += 1;
+            }
+
+            if (sendEmailChannel && targetUser.email) {
+                const subject = title;
+                const text = `${title}\n\n${message}`;
+                const html = `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
+                      <h2 style="margin-bottom: 8px;">${title}</h2>
+                      <p style="white-space: pre-line;">${message}</p>
+                    </div>
+                `;
+
+                const sent = await sendEmail({
+                    to: targetUser.email,
+                    subject,
+                    text,
+                    html,
+                });
+
+                if (sent) {
+                    emailSent += 1;
+                } else {
+                    emailFailed += 1;
+                }
+            }
+        }
+
+        return res.status(201).json({
+            message: 'Update sent successfully.',
+            recipients: users.length,
+            in_app_sent: inAppSent,
+            email_sent: emailSent,
+            email_failed: emailFailed,
+            audience,
+            channels,
+        });
+    } catch (error) {
+        return res.status(500).json({ message: error.message || 'Failed to send update.' });
     }
 });
 

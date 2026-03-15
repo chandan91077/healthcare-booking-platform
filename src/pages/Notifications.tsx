@@ -24,6 +24,14 @@ export default function NotificationsPage() {
     const type = notification?.type;
     const appointmentType = notification?.data?.appointment_type;
 
+    if (type === 'admin_update') {
+      return (
+        notification?.data?.title?.toString().trim() ||
+        notification?.title?.toString().trim() ||
+        'Admin Update'
+      );
+    }
+
     if (type === 'new_appointment' && appointmentType === 'emergency') {
       return 'Emergency Booking';
     }
@@ -68,6 +76,8 @@ export default function NotificationsPage() {
     }
 
     switch (notification?.type) {
+      case 'admin_update':
+        return Bell;
       case 'chat_available':
       case 'chat_available_confirmation':
       case 'chat_disabled':
@@ -101,6 +111,11 @@ export default function NotificationsPage() {
     }
 
     switch (notification?.type) {
+      case 'admin_update':
+        return {
+          badge: 'bg-violet-100 text-violet-600',
+          accent: 'bg-violet-500',
+        };
       case 'chat_available':
       case 'chat_available_confirmation':
         return {
