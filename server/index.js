@@ -44,7 +44,7 @@ app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 app.get('/', (req, res) => {
-    res.status(200).json({ message: 'HealthLink backend is running' });
+    res.status(200).json({ message: 'MediConnect backend is running' });
 });
 
 app.get('/health', (req, res) => {
