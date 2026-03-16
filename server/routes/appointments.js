@@ -64,7 +64,7 @@ router.get('/doctor/:doctorId', protect, async (req, res) => {
 
         const { doctorId } = req.params;
         const { date } = req.query;
-        const query = { doctor_id: doctorId };
+        const query = { doctor_id: doctorId, status: { $nin: ['cancelled', 'completed'] } };
         if (date) query.appointment_date = date;
 
         const appointments = await Appointment.find(query)

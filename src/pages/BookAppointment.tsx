@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { format, addDays, isBefore, startOfToday } from "date-fns";
+import { format, addDays, isBefore, startOfToday, isToday } from "date-fns";
 import {
   Clock,
   IndianRupee,
@@ -178,11 +178,16 @@ export default function BookAppointment() {
           const startMin = toMinutes(daySlot.start_time);
           const endMin = toMinutes(daySlot.end_time);
 
+          const now = new Date();
+          const isTodaySelected = isToday(selectedDate);
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
           const filtered = allSlots.map((s) => {
             const mins = toMinutes(s.time);
             const inRange = mins >= startMin && mins < endMin;
             const alreadyBooked = booked.includes(s.time);
-            return { time: s.time, available: inRange && !alreadyBooked };
+            const isPast = isTodaySelected && mins <= currentMinutes;
+            return { time: s.time, available: inRange && !alreadyBooked && !isPast };
           });
 
           setTimeSlots(filtered);
