@@ -147,7 +147,15 @@ export default function Payment() {
         toast.success("Payment successful! Your appointment is confirmed.");
         navigate("/appointments");
       } catch (error: any) {
-        toast.error(error.response?.data?.message || "Payment verification failed");
+        // Mark appointment as failed to free the time slot
+        try {
+          await api.post('/payments/cashfree/fail', {
+            appointment_id: appointmentId,
+          });
+        } catch (_) {
+          // Best-effort; cron job will auto-cancel unpaid appointments
+        }
+        toast.error(error.response?.data?.message || "Payment failed. Time slot has been freed.");
       } finally {
         setVerifyingPayment(false);
       }
@@ -215,28 +223,7 @@ export default function Payment() {
     }
   };
 
-  const handleCashPayment = async () => {
-    if (!appointment) {
-      toast.error("Appointment not loaded");
-      return;
-    }
 
-    setProcessing(true);
-
-    try {
-      await api.post('/payments', {
-        appointment_id: appointment.id,
-        payment_method: 'cash',
-      });
-
-      toast.success("Cash payment selected. Your appointment is pending confirmation.");
-      navigate('/appointments');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Cash payment request failed");
-    } finally {
-      setProcessing(false);
-    }
-  };
 
   if (loading || authLoading) {
     return (
@@ -328,7 +315,7 @@ export default function Payment() {
               <p>Your payment is secured with 256-bit SSL encryption</p>
             </div>
 
-            {/* Payment Options */}
+            {/* Payment */}
             <Button
               className="w-full gradient-primary border-0"
               size="lg"
@@ -340,19 +327,9 @@ export default function Payment() {
               ) : (
                 <>
                   <CreditCard className="mr-2 h-5 w-5" />
-                  Pay Online ₹{totalAmount}
+                  Pay ₹{totalAmount}
                 </>
               )}
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full mt-3"
-              size="lg"
-              onClick={handleCashPayment}
-              disabled={processing || verifyingPayment}
-            >
-              {processing ? "Processing..." : "Pay with Cash"}
             </Button>
 
             <p className="text-xs text-center text-muted-foreground mt-3">

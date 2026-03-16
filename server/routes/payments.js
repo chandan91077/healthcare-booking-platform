@@ -10,8 +10,12 @@ const { protect } = require('../middleware/authMiddleware');
 
 const CASHFREE_API_VERSION = '2023-08-01';
 
+function isProductionCashfreeEnv() {
+    return String(process.env.CASHFREE_ENV || '').trim().toLowerCase() === 'production';
+}
+
 function getCashfreeBaseUrl() {
-    return process.env.CASHFREE_ENV === 'production'
+    return isProductionCashfreeEnv()
         ? 'https://api.cashfree.com/pg'
         : 'https://sandbox.cashfree.com/pg';
         
@@ -191,7 +195,7 @@ router.post('/cashfree/order', protect, async (req, res) => {
         const orderId = `appt_${appointment._id}_${Date.now()}`.slice(0, 45);
         const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
 
-        if (process.env.CASHFREE_ENV === 'production' && isLocalhostUrl(frontendBaseUrl)) {
+        if (isProductionCashfreeEnv() && isLocalhostUrl(frontendBaseUrl)) {
             return res.status(400).json({
                 message: 'Production Cashfree requires a public FRONTEND_URL (not localhost). Update FRONTEND_URL in server .env or use CASHFREE_ENV=sandbox for local testing.',
             });
@@ -220,7 +224,7 @@ router.post('/cashfree/order', protect, async (req, res) => {
         res.json({
             order_id: data.order_id,
             payment_session_id: data.payment_session_id,
-            cashfree_env: process.env.CASHFREE_ENV === 'production' ? 'production' : 'sandbox',
+            cashfree_env: isProductionCashfreeEnv() ? 'production' : 'sandbox',
         });
     } catch (error) {
         const providerStatus = Number(error?.response?.status || 0);
@@ -261,8 +265,14 @@ router.post('/cashfree/verify', protect, async (req, res) => {
         const successfulPayment = payments.find((payment) => payment.payment_status === 'SUCCESS');
 
         if (!successfulPayment) {
+            // Payment failed — free the time slot
+            appointment.status = 'cancelled';
+            appointment.payment_status = 'failed';
+            appointment.notes = (appointment.notes || '') + ' Payment failed or not completed.';
+            await appointment.save();
+
             return res.status(400).json({
-                message: 'Payment not completed yet',
+                message: 'Payment not completed. Appointment cancelled and time slot freed.',
                 payment_status: payments[0]?.payment_status || 'PENDING',
             });
         }
@@ -291,6 +301,38 @@ router.post('/cashfree/verify', protect, async (req, res) => {
 
         const statusCode = providerStatus >= 400 && providerStatus < 500 ? 400 : 500;
         res.status(statusCode).json({ message: providerMessage });
+    }
+});
+
+// Explicitly mark a payment as failed (called by clients when Cashfree SDK errors out)
+router.post('/cashfree/fail', protect, async (req, res) => {
+    try {
+        const { appointment_id } = req.body || {};
+        if (!appointment_id) {
+            return res.status(400).json({ message: 'appointment_id is required' });
+        }
+
+        const appointment = await Appointment.findById(appointment_id);
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        if (appointment.patient_id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        if (appointment.payment_status === 'paid') {
+            return res.status(400).json({ message: 'Appointment is already paid' });
+        }
+
+        appointment.status = 'cancelled';
+        appointment.payment_status = 'failed';
+        appointment.notes = (appointment.notes || '') + ' Payment failed via client report.';
+        await appointment.save();
+
+        res.json({ message: 'Appointment cancelled due to payment failure. Time slot freed.' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 });
 
