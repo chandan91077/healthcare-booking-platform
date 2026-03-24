@@ -10,6 +10,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (credentials: any) => Promise<any>;
   register: (userData: any) => Promise<any>;
+  loginWithGoogle: (role: string) => Promise<any>;
   logout: () => Promise<void>;
 }
 

@@ -1,5 +1,18 @@
 import api from './api';
 
+export const googleSignInBackend = async (idToken: string, role: string) => {
+  try {
+    const response = await api.post('/auth/google', { idToken, role });
+    if (response.data.token) {
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data));
+    }
+    return { data: response.data, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.response?.data?.message || 'Google Sign-In failed' };
+  }
+};
+
 export type AppRole = 'patient' | 'doctor' | 'admin';
 
 export const signUp = async (userData: any) => {

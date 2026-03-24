@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { getCurrentUser, getUserRole, signIn, signUp, signOut, type AppRole } from "@/lib/auth";
-
+import { auth, googleProvider } from "@/lib/firebase";
+import { signInWithPopup } from "firebase/auth";
+import { getCurrentUser, getUserRole, signIn, signUp, signOut, googleSignInBackend, type AppRole } from "@/lib/auth";
 // Define a User type that matches our new system
 export interface User {
   id: string;
@@ -96,6 +97,30 @@ export function useAuth() {
     setRole(null);
   };
 
+  const loginWithGoogle = async (role: string) => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const idToken = await result.user.getIdToken();
+      
+      const { data, error } = await googleSignInBackend(idToken, role);
+      if (error) throw new Error(error);
+
+      if (data) {
+        const currentUser = data;
+        const token = data.token;
+        setUser(currentUser);
+        setSession({ user: currentUser, token });
+
+        const userRole = await getUserRole(currentUser._id || currentUser.id);
+        setRole(userRole);
+
+        return data;
+      }
+    } catch (error: any) {
+      throw new Error(error.message || "Google Sign-In was cancelled or failed.");
+    }
+  };
+
   return {
     user,
     session,
@@ -104,6 +129,7 @@ export function useAuth() {
     isAuthenticated: !!session,
     login,
     register,
+    loginWithGoogle,
     logout
   };
 }

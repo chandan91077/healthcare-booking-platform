@@ -1,7 +1,8 @@
 // Auth controller:
-// Implements registration, login, and profile read/update behaviors.
+// Implements registration, login, google auth, and profile read/update behaviors.
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const admin = require('../config/firebase');
 const { sendEmail } = require('../services/emailService');
 const { renderEmailWithFallback } = require('../utils/emailTemplates');
 
@@ -144,4 +145,75 @@ const updateUserProfile = async (req, res) => {
     }
 }
 
-module.exports = { registerUser, authUser, getUserProfile, updateUserProfile };
+// Google Sign-In / Firebase ID Token auth.
+// Accepts a Firebase ID token from the client, verifies it with Firebase Admin,
+// then finds-or-creates the user in MongoDB and returns our own JWT.
+const googleAuth = async (req, res) => {
+    const { idToken, role } = req.body;
+
+    if (!idToken) {
+        return res.status(400).json({ message: 'Firebase ID token is required.' });
+    }
+
+    let decoded;
+    try {
+        decoded = await admin.auth().verifyIdToken(idToken);
+    } catch (err) {
+        console.error('Firebase token verification failed:', err);
+        return res.status(401).json({ message: 'Invalid or expired Firebase token.' });
+    }
+
+    const { uid, email, name: displayName, picture: photoURL } = decoded;
+    const userRole = role || 'patient';
+
+    try {
+        // Try to find by firebase_uid first (already linked), then by email (account linking).
+        let user = await User.findOne({ $or: [{ firebase_uid: uid }, { email }] });
+
+        if (user) {
+            // Link firebase_uid if this user signed up with email/password before.
+            if (!user.firebase_uid) {
+                user.firebase_uid = uid;
+                await user.save();
+            }
+        } else {
+            // New Google user — create account.
+            user = await User.create({
+                email,
+                full_name: displayName || email.split('@')[0],
+                avatar_url: photoURL || '',
+                role: userRole,
+                firebase_uid: uid,
+            });
+
+            // Send welcome email (non-blocking).
+            try {
+                const isDoctor = userRole === 'doctor';
+                const resolved = renderEmailWithFallback({
+                    locale: 'en',
+                    templateName: isDoctor ? 'welcome_doctor' : 'welcome_patient',
+                    context: { name: user.full_name },
+                });
+                await sendEmail({
+                    to: user.email,
+                    subject: isDoctor ? 'Welcome to MediConnect Doctor Network' : 'Welcome to MediConnect',
+                    text: resolved.text,
+                    html: resolved.html,
+                });
+            } catch (_) { /* ignore email errors */ }
+        }
+
+        res.json({
+            _id: user._id,
+            full_name: user.full_name,
+            email: user.email,
+            role: user.role,
+            token: generateToken(user._id),
+        });
+    } catch (error) {
+        console.error('Google auth error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+module.exports = { registerUser, authUser, googleAuth, getUserProfile, updateUserProfile };
