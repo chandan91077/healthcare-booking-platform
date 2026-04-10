@@ -247,7 +247,7 @@ export default function Appointments() {
 
     if (appointment.video_unlocked) {
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           {appointment.zoom_join_url && (
             <a className="text-sm text-primary underline" href={appointment.zoom_join_url} target="_blank" rel="noopener noreferrer">Open Link</a>
           )}
@@ -257,12 +257,12 @@ export default function Appointments() {
     }
 
     return (
-      <div className="flex items-center gap-2">
-        <Input value={zoomLink} onChange={(e: any) => setZoomLink(e.target.value)} placeholder="Enter or generate link" className="w-52" />
-        <select value={provider} onChange={(e) => setProvider(e.target.value)} className="input input-sm">
+      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
+        <Input value={zoomLink} onChange={(e: any) => setZoomLink(e.target.value)} placeholder="Enter or generate link" className="w-full sm:w-52" />
+        <select value={provider} onChange={(e) => setProvider(e.target.value)} className="input input-sm w-full sm:w-auto">
           <option value="zoom">Zoom</option>
         </select>
-        <input type="datetime-local" value={scheduledAt || ''} onChange={(e) => setScheduledAt(e.target.value || null)} className="input input-sm" />
+        <input type="datetime-local" value={scheduledAt || ''} onChange={(e) => setScheduledAt(e.target.value || null)} className="input input-sm w-full sm:w-auto" />
         <Button size="sm" onClick={generate} disabled={loading}>Generate</Button>
         <Button size="sm" onClick={() => enableAndSend(true)} disabled={loading}>Enable & Send</Button>
         <Button size="sm" variant="outline" onClick={() => enableAndSend(false)} disabled={loading}>Enable Only</Button>
@@ -287,7 +287,7 @@ export default function Appointments() {
     return (
       <Card className="hover:shadow-md transition-shadow">
         <CardContent className="p-6">
-          <div className="flex items-start justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4 gap-4">
             <div>
               {isDoctor ? (
                 <>
@@ -307,7 +307,7 @@ export default function Appointments() {
                 </>
               )}
             </div>
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-col items-start sm:items-end gap-2">
               {getStatusBadge(appointment.status, appointment.payment_status)}
               <Badge variant={appointment.appointment_type === "emergency" ? "destructive" : "outline"}>
                 {appointment.appointment_type}
@@ -318,7 +318,7 @@ export default function Appointments() {
             </div>
           </div>
 
-          <div className="flex items-center gap-6 text-sm mb-4">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm mb-4">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span>{format(appointmentDate, "MMM d, yyyy")}</span>
@@ -375,7 +375,7 @@ export default function Appointments() {
             )}
 
             {role === 'doctor' && (
-              <div className="flex items-center gap-2">
+              <div className="flex w-full flex-wrap items-center gap-2">
                 {/* Chat enable/disable */}
                 {!appointment.chat_unlocked ? (
                   <Button size="sm" variant="secondary" onClick={async () => {
@@ -437,7 +437,7 @@ export default function Appointments() {
   if (loading || authLoading) {
     return (
       <MainLayout>
-        <div className="container py-8">
+        <div className="container py-8 overflow-x-hidden">
           <Skeleton className="h-8 w-48 mb-8" />
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
@@ -451,8 +451,8 @@ export default function Appointments() {
 
   return (
     <MainLayout>
-      <div className="container py-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container py-8 overflow-x-hidden">
+        <div className="flex flex-col-reverse sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
           <div>
             <h1 className="font-heading text-3xl font-bold mb-2">
               {role === "doctor" ? "Patient Appointments" : "My Appointments"}
@@ -469,7 +469,8 @@ export default function Appointments() {
         </div>
 
         <Tabs defaultValue="upcoming">
-          <TabsList className="mb-6">
+          <div className="mb-2 overflow-x-auto pb-2">
+            <TabsList className="mb-0 min-w-max">
             <TabsTrigger value="upcoming" className="gap-2">
               <CheckCircle2 className="h-4 w-4" />
               Upcoming ({upcomingAppointments.length})
@@ -486,7 +487,8 @@ export default function Appointments() {
               <XCircle className="h-4 w-4" />
               Cancelled ({cancelledAppointments.length})
             </TabsTrigger>
-          </TabsList>
+            </TabsList>
+          </div>
 
           <TabsContent value="upcoming">
             {upcomingAppointments.length === 0 ? (

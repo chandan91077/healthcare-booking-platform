@@ -75,7 +75,7 @@ export function Header() {
   };
 
   const renderNotificationsContent = () => (
-    <DropdownMenuContent className="w-80" align="end" forceMount>
+    <DropdownMenuContent className="w-[min(20rem,calc(100vw-1rem))]" align="end" forceMount>
       <div className="p-2">
         <div className="flex items-center justify-between mb-2">
           <p className="font-medium">Notifications</p>

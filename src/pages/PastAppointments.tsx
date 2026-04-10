@@ -303,9 +303,9 @@ export default function PastAppointments() {
                 {filteredPastAppointments.map((appt) => (
                   <div
                     key={appt.id}
-                    className="flex items-center justify-between p-6 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border rounded-lg hover:bg-muted/50 transition-colors gap-4"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-start sm:items-center gap-4 w-full sm:w-auto">
                       <Avatar className="h-12 w-12">
                         <AvatarFallback className="text-lg">
                           {appt.patient?.full_name?.charAt(0) || "P"}

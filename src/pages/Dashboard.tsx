@@ -58,7 +58,7 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="container py-8">
+        <div className="container py-8 overflow-x-hidden">
           <Skeleton className="h-8 w-48 mb-8" />
           <div className="grid md:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
@@ -72,7 +72,7 @@ export default function Dashboard() {
 
   return (
     <MainLayout>
-      <div className="container py-8">
+      <div className="container py-8 overflow-x-hidden">
         <div className="mb-8">
           <h1 className="font-heading text-3xl font-bold mb-2">
             Welcome back!
@@ -216,12 +216,12 @@ function RecentMessages() {
   return (
     <ul className="space-y-3">
       {conversations.slice(0, 3).map((c) => (
-        <li key={c.appointment_id} className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <li key={c.appointment_id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-3 last:border-0 last:pb-0">
+          <div className="flex items-start sm:items-center gap-3 w-full sm:w-auto min-w-0">
             <Avatar>
               <AvatarFallback>{(c.otherPartyName || 'U').charAt(0)}</AvatarFallback>
             </Avatar>
-            <div>
+            <div className="min-w-0">
               <div className="font-medium flex items-center gap-2">
                 {c.otherPartyName}
                 {c.appointmentCount > 1 && (
@@ -230,12 +230,12 @@ function RecentMessages() {
                   </Badge>
                 )}
               </div>
-              <div className="text-sm text-muted-foreground truncate w-72">
+              <div className="text-sm text-muted-foreground truncate max-w-[12rem] sm:max-w-[18rem]">
                 {c.lastMessage ? c.lastMessage.content : 'No messages yet'}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap sm:justify-end w-full sm:w-auto">
             {c.unreadCount > 0 && <Badge variant="destructive">{c.unreadCount}</Badge>}
             {c.video?.enabled && c.video?.doctorInCall ? (
               <Video className="h-6 w-6 text-green-500 hover:text-green-600 cursor-pointer" />

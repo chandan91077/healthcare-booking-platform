@@ -130,7 +130,7 @@ export function DoctorAvailability({ doctorId }: DoctorAvailabilityProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
@@ -140,7 +140,7 @@ export function DoctorAvailability({ doctorId }: DoctorAvailabilityProps) {
               Set your available hours for each day of the week
             </CardDescription>
           </div>
-          <Button onClick={saveAvailability} disabled={saving}>
+          <Button onClick={saveAvailability} disabled={saving} className="w-full sm:w-auto">
             {saving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
@@ -157,14 +157,14 @@ export function DoctorAvailability({ doctorId }: DoctorAvailabilityProps) {
             return (
               <div
                 key={slot.day_of_week}
-                className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${slot.is_available ? "bg-background" : "bg-muted/50"
+                className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-lg border transition-colors ${slot.is_available ? "bg-background" : "bg-muted/50"
                   }`}
               >
-                <div className="w-28">
+                <div className="w-full sm:w-28">
                   <Label className="font-medium">{day?.label}</Label>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Switch
                     checked={slot.is_available}
                     onCheckedChange={(checked) =>
@@ -177,14 +177,14 @@ export function DoctorAvailability({ doctorId }: DoctorAvailabilityProps) {
                 </div>
 
                 {slot.is_available && (
-                  <div className="flex items-center gap-2 ml-auto">
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:ml-auto">
                     <Select
                       value={slot.start_time}
                       onValueChange={(value) =>
                         updateSlot(slot.day_of_week, "start_time", value)
                       }
                     >
-                      <SelectTrigger className="w-24">
+                      <SelectTrigger className="w-full sm:w-24">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -204,7 +204,7 @@ export function DoctorAvailability({ doctorId }: DoctorAvailabilityProps) {
                         updateSlot(slot.day_of_week, "end_time", value)
                       }
                     >
-                      <SelectTrigger className="w-24">
+                      <SelectTrigger className="w-full sm:w-24">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

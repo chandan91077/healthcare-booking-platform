@@ -303,7 +303,7 @@ export default function DoctorDashboard() {
   if (isLoading || loadingDoctor) {
     return (
       <MainLayout>
-        <div className="container py-8">
+        <div className="container py-8 overflow-x-hidden">
           <Skeleton className="h-8 w-48 mb-8" />
           <Skeleton className="h-64" />
         </div>
@@ -315,7 +315,7 @@ export default function DoctorDashboard() {
   if (doctorData && !doctorData.is_verified) {
     return (
       <MainLayout>
-        <div className="container py-8 max-w-2xl mx-auto">
+        <div className="container py-8 max-w-2xl mx-auto overflow-x-hidden">
           <Card className="text-center">
             <CardHeader>
               {doctorData.verification_status === "pending" ? (
@@ -429,9 +429,9 @@ export default function DoctorDashboard() {
 
   return (
     <MainLayout>
-      <div className="container py-8">
+      <div className="container py-8 overflow-x-hidden">
         {/* Welcome Banner */}
-        <div className="mb-8 flex items-start justify-between gap-4">
+        <div className="mb-8 flex flex-col-reverse sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-3xl font-bold mb-2">
               Welcome back, Dr. {doctorProfile?.full_name || "Doctor"}!
@@ -631,14 +631,14 @@ export default function DoctorDashboard() {
                 {todayAppointments.map((appt) => (
                   <div
                     key={appt.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 w-full sm:w-auto min-w-0">
                       <Avatar>
                         <AvatarFallback>{appt.patient?.full_name?.charAt(0) || "P"}</AvatarFallback>
                       </Avatar>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium">{appt.patient?.full_name}</p>
                           {appt.patient?._id && (
                             <PatientHistoryModal
@@ -652,7 +652,7 @@ export default function DoctorDashboard() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap sm:justify-end w-full sm:w-auto">
                       {appt.status === 'pending' && (
                         <>
                           <Button size="sm" onClick={() => handleUpdateStatus(appt._id, 'confirmed')} className="bg-success hover:bg-success/90">
@@ -709,7 +709,7 @@ export default function DoctorDashboard() {
                               }
                             }}>Enable Chat</Button>
                           ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Button size="sm" variant="outline" asChild>
                                 <Link to={`/chat/${appt._id || appt.id}`}>
                                   <MessageSquare className="h-4 w-4 mr-1" />
@@ -771,7 +771,7 @@ export default function DoctorDashboard() {
                               Enable Video
                             </Button>
                           ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               {appt.video.doctorInCall ? (
                                 <>
                                   <Button size="sm" variant="secondary" asChild>
@@ -906,14 +906,14 @@ export default function DoctorDashboard() {
                 {upcomingAppointments.slice(0, 5).map((appt) => (
                   <div
                     key={appt.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 w-full sm:w-auto min-w-0">
                       <Avatar>
                         <AvatarFallback>{appt.patient?.full_name?.charAt(0) || "P"}</AvatarFallback>
                       </Avatar>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium">{appt.patient?.full_name}</p>
                           {appt.patient?._id && (
                             <PatientHistoryModal
@@ -928,7 +928,7 @@ export default function DoctorDashboard() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <div className="flex items-center gap-2 flex-wrap sm:justify-end w-full sm:w-auto mt-2 sm:mt-0">
                       <Badge variant={appt.appointment_type === "emergency" ? "destructive" : "secondary"}>
                         {appt.appointment_type}
                       </Badge>
@@ -963,7 +963,7 @@ export default function DoctorDashboard() {
                           }
                         }}>Enable Chat</Button>
                       ) : (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Button size="sm" variant="outline" asChild>
                             <Link to={`/chat/${appt._id || appt.id}`}>
                               <MessageSquare className="h-4 w-4 mr-1" />
@@ -1022,7 +1022,7 @@ export default function DoctorDashboard() {
                           Enable Video
                         </Button>
                       ) : (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {appt.video.doctorInCall ? (
                             <>
                               <Button size="sm" variant="secondary" asChild>
@@ -1151,7 +1151,7 @@ export default function DoctorDashboard() {
         {/* Past Appointments */}
         <Card className="mb-8">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <CardTitle>Past Appointments</CardTitle>
                 <CardDescription>View and search your completed appointments</CardDescription>
@@ -1159,7 +1159,7 @@ export default function DoctorDashboard() {
               <Button
                 variant="outline"
                 onClick={() => navigate("/doctor/past-appointments")}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 w-full sm:w-auto"
               >
                 <Calendar className="h-4 w-4" />
                 View Past Appointments
