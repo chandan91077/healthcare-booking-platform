@@ -160,7 +160,26 @@ const googleAuth = async (req, res) => {
         decoded = await admin.auth().verifyIdToken(idToken);
     } catch (err) {
         console.error('Firebase token verification failed:', err);
-        return res.status(401).json({ message: 'Invalid or expired Firebase token.' });
+        const firebaseCode = err?.errorInfo?.code || err?.code || 'auth/token-verification-failed';
+
+        if (firebaseCode === 'auth/id-token-expired') {
+            return res.status(401).json({
+                message: 'Firebase session expired. Please continue with Google again.',
+                code: firebaseCode,
+            });
+        }
+
+        if (firebaseCode === 'auth/invalid-id-token' || firebaseCode === 'auth/argument-error') {
+            return res.status(401).json({
+                message: 'Invalid Firebase token. Ensure app Firebase config and backend service account use the same project.',
+                code: firebaseCode,
+            });
+        }
+
+        return res.status(401).json({
+            message: 'Invalid or expired Firebase token.',
+            code: firebaseCode,
+        });
     }
 
     const { uid, email, name: displayName, picture: photoURL } = decoded;
