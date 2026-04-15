@@ -1,5 +1,5 @@
 // Firebase Admin SDK initialization.
-// Supports either FIREBASE_SERVICE_ACCOUNT_JSON (recommended for deployment)
+// Supports FIREBASE_SERVICE_ACCOUNT_JSON, split Firebase env vars,
 // or local serviceAccountKey.json for development.
 const admin = require('firebase-admin');
 const path = require('path');
@@ -41,6 +41,34 @@ const initFromEnv = () => {
     }
 };
 
+const initFromSplitEnv = () => {
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+    if (!projectId || !clientEmail || !privateKey) {
+        return false;
+    }
+
+    try {
+        const serviceAccount = normalizeServiceAccount({
+            project_id: projectId,
+            client_email: clientEmail,
+            private_key: privateKey,
+        });
+
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            projectId,
+        });
+        return true;
+    } catch (error) {
+        initError = error;
+        console.error('Firebase Admin init from split env vars failed:', error.message);
+        return false;
+    }
+};
+
 const initFromFile = () => {
     if (!fs.existsSync(keyPath)) {
         return false;
@@ -61,10 +89,11 @@ const initFromFile = () => {
 };
 
 if (!admin.apps.length) {
-    const initialized = initFromEnv() || initFromFile();
+    const initialized = initFromEnv() || initFromSplitEnv() || initFromFile();
     if (!initialized) {
         console.error(
-            'Firebase Admin is not initialized. Set FIREBASE_SERVICE_ACCOUNT_JSON in deployment ' +
+            'Firebase Admin is not initialized. Set FIREBASE_SERVICE_ACCOUNT_JSON, ' +
+            'or FIREBASE_PROJECT_ID/FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY in deployment, ' +
             'or add server/serviceAccountKey.json for local development.'
         );
     }
