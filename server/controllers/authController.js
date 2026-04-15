@@ -2,7 +2,12 @@
 // Implements registration, login, google auth, and profile read/update behaviors.
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const admin = require('../config/firebase');
+const {
+    admin,
+    isFirebaseReady,
+    getFirebaseProjectId,
+    getFirebaseInitError,
+} = require('../config/firebase');
 const { sendEmail } = require('../services/emailService');
 const { renderEmailWithFallback } = require('../utils/emailTemplates');
 
@@ -155,6 +160,15 @@ const googleAuth = async (req, res) => {
         return res.status(400).json({ message: 'Firebase ID token is required.' });
     }
 
+    if (!isFirebaseReady()) {
+        const initError = getFirebaseInitError();
+        return res.status(500).json({
+            message: 'Server Firebase auth is not configured. Please contact support.',
+            code: 'firebase/not-initialized',
+            detail: process.env.NODE_ENV === 'production' ? undefined : (initError?.message || null),
+        });
+    }
+
     let decoded;
     try {
         decoded = await admin.auth().verifyIdToken(idToken);
@@ -170,9 +184,29 @@ const googleAuth = async (req, res) => {
         }
 
         if (firebaseCode === 'auth/invalid-id-token' || firebaseCode === 'auth/argument-error') {
+            const unsafeDecoded = jwt.decode(idToken) || {};
+            const tokenProject = unsafeDecoded.aud || unsafeDecoded.project_id || null;
+            const serverProject = getFirebaseProjectId();
+
+            if (tokenProject && serverProject && tokenProject !== serverProject) {
+                return res.status(401).json({
+                    message: 'Firebase project mismatch between app token and backend service account.',
+                    code: 'firebase/project-mismatch',
+                    expectedProject: serverProject,
+                    receivedProject: tokenProject,
+                });
+            }
+
             return res.status(401).json({
                 message: 'Invalid Firebase token. Ensure app Firebase config and backend service account use the same project.',
                 code: firebaseCode,
+            });
+        }
+
+        if (firebaseCode === 'app/no-app') {
+            return res.status(500).json({
+                message: 'Server Firebase auth is not configured. Please contact support.',
+                code: 'firebase/not-initialized',
             });
         }
 
