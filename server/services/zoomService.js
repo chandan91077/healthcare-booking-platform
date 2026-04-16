@@ -47,8 +47,11 @@ class ZoomService {
         try {
             const token = await this.getAccessToken();
 
+            const patientName = String(appointmentData.patientName || 'Patient').trim() || 'Patient';
+            const doctorName = String(appointmentData.doctorName || 'Doctor').trim() || 'Doctor';
+
             const meetingData = {
-                topic: `Appointment with ${appointmentData.patientName}`,
+                topic: `Appointment with ${patientName}`,
                 type: 2, // Scheduled meeting
                 start_time: `${appointmentData.appointment_date}T${appointmentData.appointment_time}:00Z`,
                 duration: 60, // 60 minutes
@@ -75,12 +78,14 @@ class ZoomService {
             });
 
             const meeting = response.data;
+            const doctorJoinUrl = `${meeting.start_url}${meeting.start_url.includes('?') ? '&' : '?'}uname=${encodeURIComponent(patientName)}`;
+            const patientJoinUrl = `${meeting.join_url}${meeting.join_url.includes('?') ? '&' : '?'}uname=${encodeURIComponent(doctorName)}`;
 
             return {
                 provider: 'zoom',
                 meetingId: meeting.id.toString(),
-                doctorJoinUrl: meeting.start_url,
-                patientJoinUrl: meeting.join_url,
+                doctorJoinUrl,
+                patientJoinUrl,
                 enabled: false,
                 enabledAt: null,
             };

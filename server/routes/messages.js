@@ -73,13 +73,32 @@ router.get('/conversations', protect, async (req, res) => {
         const Doctor = require('../models/Doctor');
         const User = require('../models/User');
 
+        const toIdString = (value) => {
+            if (!value) return '';
+            if (typeof value === 'string') return value;
+            if (value._id) return value._id.toString();
+            return value.toString ? value.toString() : '';
+        };
+
         let appts = [];
         if (role === 'patient') {
             appts = await Appointment.find({ patient_id: _id }).select('_id doctor_id patient_id video status appointment_date appointment_time').populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } }).populate('patient_id', 'full_name');
         } else if (role === 'doctor') {
-            const doctor = await Doctor.findOne({ user_id: _id });
-            if (!doctor) return res.json([]);
-            appts = await Appointment.find({ doctor_id: doctor._id }).select('_id doctor_id patient_id video status appointment_date appointment_time').populate('patient_id', 'full_name').populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } });
+            const doctorByUser = await Doctor.findOne({ user_id: _id }).select('_id');
+            const doctorById = doctorByUser ? null : await Doctor.findById(_id).select('_id');
+            const doctorProfileId = doctorByUser?._id || doctorById?._id;
+
+            const doctorFilters = [];
+            if (doctorProfileId) {
+                doctorFilters.push({ doctor_id: doctorProfileId });
+            }
+            // Fallback for legacy records that may store user id directly in doctor_id.
+            doctorFilters.push({ doctor_id: _id });
+
+            appts = await Appointment.find({ $or: doctorFilters })
+                .select('_id doctor_id patient_id video status appointment_date appointment_time')
+                .populate('patient_id', 'full_name')
+                .populate({ path: 'doctor_id', populate: { path: 'user_id', select: 'full_name' } });
         } else {
             return res.json([]);
         }
@@ -91,8 +110,11 @@ router.get('/conversations', protect, async (req, res) => {
         const conversationGroups = new Map();
 
         for (const appt of appts) {
-            const patientId = appt.patient_id._id.toString();
-            const doctorId = appt.doctor_id._id.toString();
+            const patientId = toIdString(appt.patient_id);
+            const doctorId = toIdString(appt.doctor_id);
+            if (!patientId || !doctorId) {
+                continue;
+            }
             const pairKey = role === 'patient' ? `${patientId}-${doctorId}` : `${doctorId}-${patientId}`;
 
             if (!conversationGroups.has(pairKey)) {

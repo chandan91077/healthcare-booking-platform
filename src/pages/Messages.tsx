@@ -108,7 +108,9 @@ export default function Messages() {
                         <Badge variant="secondary">{conversation.appointmentCount} chats</Badge>
                       ) : null}
                       {conversation.unreadCount > 0 ? (
-                        <Badge variant="destructive">{conversation.unreadCount}</Badge>
+                        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-white">
+                          {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+                        </span>
                       ) : null}
                       {conversation.video?.doctorInCall ? (
                         <Video className="h-5 w-5 text-green-500" />

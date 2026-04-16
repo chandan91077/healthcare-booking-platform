@@ -24,6 +24,43 @@ export function Header() {
   const [recentNotifs, setRecentNotifs] = useState<any[]>([]);
   const [videoAppointments, setVideoAppointments] = useState<any[]>([]);
 
+  const dedupeNotifications = (items: any[]) => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      const signature = [
+        item?.type || '',
+        item?.message || '',
+        item?.data?.appointment_id || '',
+        item?.data?.zoom_join_url || item?.data?.url || item?.url || '',
+      ].join('::');
+
+      if (seen.has(signature)) {
+        return false;
+      }
+      seen.add(signature);
+      return true;
+    });
+  };
+
+  const dedupeVideoAppointments = (items: any[]) => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      const joinUrl = item?.video?.patientJoinUrl || item?.zoom_join_url || '';
+      const doctorName =
+        item?.doctor?.profile?.full_name ||
+        item?.doctor_id?.user_id?.full_name ||
+        item?.doctor_id?.full_name ||
+        'Doctor';
+      const signature = `${doctorName}::${joinUrl}`;
+
+      if (seen.has(signature)) {
+        return false;
+      }
+      seen.add(signature);
+      return true;
+    });
+  };
+
   useEffect(() => {
     if (!isAuthenticated) return;
     async function fetchUnread() {
@@ -31,13 +68,16 @@ export function Header() {
         const { data } = await api.get('/notifications/unread-count');
         setUnreadCount(data.count || 0);
         const { data: notifs } = await api.get('/notifications');
-        setRecentNotifs(notifs.slice(0,5));
+        const dedupedNotifs = dedupeNotifications(Array.isArray(notifs) ? notifs : []);
+        setRecentNotifs(dedupedNotifs.slice(0, 5));
 
         // Fetch video-enabled appointments for patients
         if (role === 'patient') {
           const { data: appointments } = await api.get('/appointments');
-          const videoEnabled = appointments.filter((appt: any) => appt.video?.enabled);
-          setVideoAppointments(videoEnabled);
+          const videoEnabled = (Array.isArray(appointments) ? appointments : []).filter(
+            (appt: any) => appt.video?.enabled,
+          );
+          setVideoAppointments(dedupeVideoAppointments(videoEnabled));
         }
       } catch (err) {
         // ignore
@@ -105,7 +145,7 @@ export function Header() {
                   }}
                 >
                   <Video className="h-3 w-3 mr-1" />
-                  Join call with {appt.doctor?.profile?.full_name || 'Doctor'}
+                  Join call with {appt.doctor?.profile?.full_name || appt.doctor_id?.user_id?.full_name || appt.doctor_id?.full_name || 'Doctor'}
                 </Button>
               ))}
               {videoAppointments.length > 2 && (

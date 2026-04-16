@@ -415,6 +415,7 @@ router.put('/:id/permissions', protect, async (req, res) => {
                                 const meetingPatient = await User.findById(appointment.patient_id);
                                 const newMeeting = await zoomService.createMeeting({
                                     patientName: meetingPatient?.full_name || 'Patient',
+                                    doctorName: formatDoctorName(doctor.user_id?.full_name),
                                     appointment_date: appointment.appointment_date,
                                     appointment_time: appointment.appointment_time,
                                 });
@@ -532,6 +533,7 @@ router.patch('/:id/video-toggle', protect, async (req, res) => {
                 const patient = await User.findById(appointment.patient_id);
                 const zoomMeeting = await zoomService.createMeeting({
                     patientName: patient?.full_name || 'Patient',
+                    doctorName: formatDoctorName(appointment.doctor_id?.user_id?.full_name),
                     appointment_date: appointment.appointment_date,
                     appointment_time: appointment.appointment_time,
                 });
@@ -720,6 +722,7 @@ router.patch('/:id/refresh-zoom-meeting', protect, async (req, res) => {
         const patient = await User.findById(appointment.patient_id);
         const zoomMeeting = await zoomService.createMeeting({
             patientName: patient.full_name,
+            doctorName: formatDoctorName(appointment.doctor_id?.user_id?.full_name),
             appointment_date: appointment.appointment_date,
             appointment_time: appointment.appointment_time,
         });

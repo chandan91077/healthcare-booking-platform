@@ -20,6 +20,24 @@ export default function NotificationsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuthContext();
   const [notifications, setNotifications] = useState<any[]>([]);
 
+  const dedupeNotifications = (items: any[]) => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      const signature = [
+        item?.type || '',
+        item?.message || '',
+        item?.data?.appointment_id || '',
+        item?.data?.zoom_join_url || item?.data?.url || item?.url || '',
+      ].join('::');
+
+      if (seen.has(signature)) {
+        return false;
+      }
+      seen.add(signature);
+      return true;
+    });
+  };
+
   const getNotificationTitle = (notification: any) => {
     const type = notification?.type;
     const appointmentType = notification?.data?.appointment_type;
@@ -173,7 +191,7 @@ export default function NotificationsPage() {
   const fetchNotifications = async () => {
     try {
       const { data } = await api.get('/notifications');
-      setNotifications(data || []);
+      setNotifications(dedupeNotifications(Array.isArray(data) ? data : []));
     } catch (err) {
       console.error('Error fetching notifications', err);
     }
