@@ -20,6 +20,7 @@ interface Conversation {
   } | null;
   unreadCount: number;
   otherPartyName: string;
+  chat_unlocked?: boolean;
   appointmentCount?: number;
   video?: {
     doctorInCall?: boolean;
@@ -96,7 +97,16 @@ export default function Messages() {
                         <AvatarFallback>{(conversation.otherPartyName || "U").charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
-                        <p className="font-medium truncate">{conversation.otherPartyName || "Unknown"}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{conversation.otherPartyName || "Unknown"}</p>
+                          {conversation.chat_unlocked ? (
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-full bg-green-500"
+                              title="Chat enabled"
+                              aria-label="Chat enabled"
+                            />
+                          ) : null}
+                        </div>
                         <p className="text-sm text-muted-foreground truncate">
                           {conversation.lastMessage?.content || "No messages yet"}
                         </p>

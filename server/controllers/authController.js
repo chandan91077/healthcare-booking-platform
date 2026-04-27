@@ -97,6 +97,93 @@ const authUser = async (req, res) => {
     }
 };
 
+const forgotPassword = async (req, res) => {
+    const email = req.body?.email?.toString().trim().toLowerCase() || '';
+    if (!email) {
+        return res.status(400).json({ message: 'Email is required.' });
+    }
+
+    const genericMessage =
+        'If an account with that email exists, a password reset link has been sent.';
+
+    try {
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.json({ message: genericMessage });
+        }
+
+        const resetToken = jwt.sign(
+            { id: user._id, purpose: 'password_reset' },
+            process.env.JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:8080')
+            .split(',')[0]
+            .trim();
+        const resetUrl = `${frontendBase}/reset-password?token=${encodeURIComponent(resetToken)}`;
+
+        const resolved = renderEmailWithFallback({
+            locale: user.locale || 'en',
+            templateName: 'password_reset',
+            context: { name: user.full_name, reset_url: resetUrl },
+            fallbackText: ({ name, reset_url }) =>
+                `Hi ${name || 'there'},\n\nUse this link to reset your MediConnect password: ${reset_url}\n\nThis link expires in 15 minutes. If you did not request this, you can ignore this email.`,
+            fallbackHtml: ({ name, reset_url }) =>
+                `<p>Hi ${name || 'there'},</p><p>Use this link to reset your MediConnect password:</p><p><a href="${reset_url}">${reset_url}</a></p><p>This link expires in 15 minutes. If you did not request this, you can ignore this email.</p>`,
+        });
+
+        await sendEmail({
+            to: user.email,
+            subject: 'MediConnect password reset',
+            text: resolved.text,
+            html: resolved.html,
+        });
+
+        return res.json({ message: genericMessage });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+const resetPassword = async (req, res) => {
+    const token = req.body?.token?.toString().trim() || '';
+    const newPassword = req.body?.new_password?.toString() || '';
+
+    if (!token || !newPassword) {
+        return res.status(400).json({ message: 'token and new_password are required.' });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ message: 'Password must be at least 6 characters.' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (!decoded || decoded.purpose !== 'password_reset' || !decoded.id) {
+            return res.status(400).json({ message: 'Invalid reset token.' });
+        }
+
+        const user = await User.findById(decoded.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        user.password = newPassword;
+        await user.save();
+
+        return res.json({ message: 'Password has been reset successfully.' });
+    } catch (error) {
+        if (error?.name === 'TokenExpiredError') {
+            return res.status(400).json({ message: 'Reset token has expired.' });
+        }
+        if (error?.name === 'JsonWebTokenError') {
+            return res.status(400).json({ message: 'Invalid reset token.' });
+        }
+        return res.status(500).json({ message: error.message });
+    }
+};
+
 const getUserProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user._id).select('-password');
@@ -269,4 +356,12 @@ const googleAuth = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, authUser, googleAuth, getUserProfile, updateUserProfile };
+module.exports = {
+    registerUser,
+    authUser,
+    forgotPassword,
+    resetPassword,
+    googleAuth,
+    getUserProfile,
+    updateUserProfile,
+};

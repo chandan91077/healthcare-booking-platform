@@ -24,34 +24,21 @@ export function Header() {
   const [recentNotifs, setRecentNotifs] = useState<any[]>([]);
   const [videoAppointments, setVideoAppointments] = useState<any[]>([]);
 
-  const dedupeNotifications = (items: any[]) => {
-    const seen = new Set<string>();
-    return items.filter((item) => {
-      const signature = [
-        item?.type || '',
-        item?.message || '',
-        item?.data?.appointment_id || '',
-        item?.data?.zoom_join_url || item?.data?.url || item?.url || '',
-      ].join('::');
-
-      if (seen.has(signature)) {
-        return false;
-      }
-      seen.add(signature);
-      return true;
-    });
-  };
-
   const dedupeVideoAppointments = (items: any[]) => {
     const seen = new Set<string>();
     return items.filter((item) => {
-      const joinUrl = item?.video?.patientJoinUrl || item?.zoom_join_url || '';
+      const doctorId =
+        item?.doctor?._id ||
+        item?.doctor_id?._id ||
+        item?.doctor_id?.user_id?._id ||
+        item?.doctor_id ||
+        '';
       const doctorName =
         item?.doctor?.profile?.full_name ||
         item?.doctor_id?.user_id?.full_name ||
         item?.doctor_id?.full_name ||
         'Doctor';
-      const signature = `${doctorName}::${joinUrl}`;
+      const signature = `${doctorId || doctorName}`;
 
       if (seen.has(signature)) {
         return false;
@@ -68,8 +55,7 @@ export function Header() {
         const { data } = await api.get('/notifications/unread-count');
         setUnreadCount(data.count || 0);
         const { data: notifs } = await api.get('/notifications');
-        const dedupedNotifs = dedupeNotifications(Array.isArray(notifs) ? notifs : []);
-        setRecentNotifs(dedupedNotifs.slice(0, 5));
+        setRecentNotifs((Array.isArray(notifs) ? notifs : []).slice(0, 5));
 
         // Fetch video-enabled appointments for patients
         if (role === 'patient') {

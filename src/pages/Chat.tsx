@@ -355,10 +355,19 @@ export default function Chat() {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <CardTitle className="text-lg">
-                    {appointment.otherParty?.role === "doctor" ? "Dr. " : ""}
-                    {appointment.otherParty?.full_name}
-                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">
+                      {appointment.otherParty?.role === "doctor" ? "Dr. " : ""}
+                      {appointment.otherParty?.full_name}
+                    </CardTitle>
+                    {appointment.chat_unlocked ? (
+                      <span
+                        className="inline-block h-2.5 w-2.5 rounded-full bg-green-500"
+                        title="Chat enabled"
+                        aria-label="Chat enabled"
+                      />
+                    ) : null}
+                  </div>
                   <p className="text-sm text-muted-foreground capitalize">
                     {appointment.otherParty?.role}
                   </p>

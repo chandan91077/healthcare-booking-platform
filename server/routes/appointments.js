@@ -151,8 +151,9 @@ router.post('/', protect, async (req, res) => {
                 return res.status(400).json({ message: 'Selected time is outside doctor availability' });
             }
 
-            // Check existing non-cancelled appointment at same time
-            const existing = await Appointment.findOne({ doctor_id, appointment_date, appointment_time, status: { $ne: 'cancelled' } });
+            // Check existing active appointment at same time.
+            // Completed/cancelled appointments should not keep the slot blocked.
+            const existing = await Appointment.findOne({ doctor_id, appointment_date, appointment_time, status: { $nin: ['cancelled', 'completed'] } });
             if (existing) {
                 return res.status(409).json({ message: 'This slot is already booked' });
             }

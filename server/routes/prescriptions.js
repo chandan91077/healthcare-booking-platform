@@ -101,6 +101,13 @@ router.post('/', protect, async (req, res) => {
             return res.status(400).json({ message: 'Cannot prescribe for a cancelled appointment' });
         }
 
+        const existingPrescription = await Prescription.findOne({
+            appointment_id,
+        }).select('_id');
+        if (existingPrescription) {
+            return res.status(409).json({ message: 'Prescription already exists for this appointment' });
+        }
+
         const prescription = await Prescription.create({
             appointment_id,
             patient_id: appointment.patient_id,
