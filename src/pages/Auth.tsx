@@ -238,6 +238,30 @@ export default function Auth() {
                           {signInForm.formState.errors.password.message}
                         </p>
                       )}
+                      <div className="flex justify-end mt-1">
+                        <button
+                          type="button"
+                          className="text-xs text-primary hover:underline"
+                          onClick={async () => {
+                            const email = signInForm.getValues("email");
+                            if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+                              toast.error("Please enter a valid email address first.");
+                              return;
+                            }
+                            try {
+                              setIsLoading(true);
+                              await api.post("/auth/forgot-password", { email });
+                              toast.info("If an account exists, a reset link has been sent to your email.");
+                            } catch (err) {
+                              toast.error("Failed to send reset email.");
+                            } finally {
+                              setIsLoading(false);
+                            }
+                          }}
+                        >
+                          Forgot Password?
+                        </button>
+                      </div>
                     </div>
 
                     <Button type="submit" className="w-full" disabled={isLoading}>

@@ -34,6 +34,8 @@ const TermsOfService = React.lazy(() => import("./pages/TermsOfService"));
 const Benefits = React.lazy(() => import("./pages/Benefits"));
 const Faq = React.lazy(() => import("./pages/Faq"));
 
+const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -53,6 +55,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/home" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/login" element={<Navigate to="/auth" replace />} />
               <Route path="/register" element={<Navigate to="/auth?mode=signup" replace />} />
               <Route path="/adminpage" element={<AdminPage />} />
