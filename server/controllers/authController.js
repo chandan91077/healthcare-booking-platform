@@ -11,11 +11,20 @@ const {
 const { sendEmail } = require('../services/emailService');
 const { renderEmailWithFallback } = require('../utils/emailTemplates');
 
-// JWT used by client after login/register.
-const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, {
+// JWT used by client after login/register. Includes sessionId for single-device enforcement.
+const generateToken = (id, sessionId = null) => {
+    const payload = { id };
+    if (sessionId) {
+        payload.sessionId = sessionId;
+    }
+    return jwt.sign(payload, process.env.JWT_SECRET, {
         expiresIn: '30d',
     });
+};
+
+// Generate a unique session ID
+const generateSessionId = () => {
+    return require('crypto').randomBytes(16).toString('hex');
 };
 
 const registerUser = async (req, res) => {
@@ -28,11 +37,18 @@ const registerUser = async (req, res) => {
             return res.status(400).json({ message: 'User already exists' });
         }
 
+        const sessionId = generateSessionId();
         const user = await User.create({
             full_name,
             email,
             password,
             role: role || 'patient',
+            activeSession: {
+                sessionId,
+                deviceInfo: req.headers['user-agent'] || 'Unknown Device',
+                loginTime: new Date(),
+                lastActivityTime: new Date(),
+            },
         });
 
         if (user) {
@@ -65,7 +81,8 @@ const registerUser = async (req, res) => {
                 full_name: user.full_name,
                 email: user.email,
                 role: user.role,
-                token: generateToken(user._id),
+                token: generateToken(user._id, sessionId),
+                sessionId: sessionId,
             });
         } else {
             res.status(400).json({ message: 'Invalid user data' });
@@ -82,12 +99,23 @@ const authUser = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
+            // Create new session and invalidate previous one on different device
+            const sessionId = generateSessionId();
+            user.activeSession = {
+                sessionId,
+                deviceInfo: req.headers['user-agent'] || 'Unknown Device',
+                loginTime: new Date(),
+                lastActivityTime: new Date(),
+            };
+            await user.save();
+
             res.json({
                 _id: user._id,
                 full_name: user.full_name,
                 email: user.email,
                 role: user.role,
-                token: generateToken(user._id),
+                token: generateToken(user._id, sessionId),
+                sessionId: sessionId,
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });
@@ -343,12 +371,23 @@ const googleAuth = async (req, res) => {
             } catch (_) { /* ignore email errors */ }
         }
 
+        // Create new session and invalidate previous one
+        const sessionId = generateSessionId();
+        user.activeSession = {
+            sessionId,
+            deviceInfo: req.headers['user-agent'] || 'Unknown Device',
+            loginTime: new Date(),
+            lastActivityTime: new Date(),
+        };
+        await user.save();
+
         res.json({
             _id: user._id,
             full_name: user.full_name,
             email: user.email,
             role: user.role,
-            token: generateToken(user._id),
+            token: generateToken(user._id, sessionId),
+            sessionId: sessionId,
         });
     } catch (error) {
         console.error('Google auth error:', error);

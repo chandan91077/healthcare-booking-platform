@@ -59,6 +59,24 @@ const userSchema = new mongoose.Schema({
             default: true,
         },
     },
+    activeSession: {
+        sessionId: {
+            type: String,
+            default: null,
+        },
+        deviceInfo: {
+            type: String,
+            default: null,
+        },
+        loginTime: {
+            type: Date,
+            default: null,
+        },
+        lastActivityTime: {
+            type: Date,
+            default: null,
+        },
+    },
 }, { timestamps: true });
 
 // Encrypt password using bcrypt (only when a password is present and modified)

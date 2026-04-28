@@ -362,7 +362,11 @@ export default function DoctorDashboard() {
 
                   <div className="text-sm text-muted-foreground space-y-2">
                     <p><strong>Specialization:</strong> {doctorData.specialization}</p>
-                    <p><strong>Submitted on:</strong> {new Date(doctorData.created_at).toLocaleDateString()}</p>
+                    <p><strong>Applied on:</strong> {new Date(doctorData.created_at).toLocaleDateString()}</p>
+                  </div>
+
+                  <div className="bg-warning/10 rounded-lg p-4 text-sm text-warning-foreground border border-warning/20">
+                    Your application status: <span className="font-bold uppercase tracking-wider">Pending</span>
                   </div>
 
                   <div className="bg-info/10 rounded-lg p-4 text-sm text-info">
@@ -371,12 +375,18 @@ export default function DoctorDashboard() {
                 </>
               ) : (
                 <>
+                  <div className="text-sm text-muted-foreground space-y-2 mb-4">
+                    <p><strong>Applied on:</strong> {new Date(doctorData.created_at).toLocaleDateString()}</p>
+                  </div>
                   {doctorData.rejection_reason && (
                     <div className="bg-destructive/10 rounded-lg p-4 text-left">
                       <h3 className="font-semibold text-destructive mb-2">Reason for Rejection</h3>
                       <p className="text-sm">{doctorData.rejection_reason}</p>
                     </div>
                   )}
+                  <div className="bg-destructive/10 rounded-lg p-4 text-sm text-destructive font-semibold border border-destructive/20 mt-4">
+                    Your application status: <span className="font-bold uppercase tracking-wider">Rejected</span>
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     If you believe this was an error or would like to reapply with updated documents, please contact our support team.
                   </p>

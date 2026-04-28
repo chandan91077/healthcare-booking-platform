@@ -21,6 +21,19 @@ const protect = async (req, res, next) => {
                 return res.status(401).json({ message: 'Not authorized, user not found' });
             }
 
+            // Single-device login: validate sessionId if present in token
+            if (decoded.sessionId && req.user.activeSession) {
+                if (decoded.sessionId !== req.user.activeSession.sessionId) {
+                    return res.status(403).json({
+                        message: 'Your session has been invalidated. You have logged in on another device.',
+                        code: 'SESSION_INVALIDATED',
+                    });
+                }
+                // Update last activity time
+                req.user.activeSession.lastActivityTime = new Date();
+                await req.user.save();
+            }
+
             return next();
         } catch (error) {
             console.error(error);
